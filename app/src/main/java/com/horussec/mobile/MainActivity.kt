@@ -1,3 +1,8 @@
+/*
+ * Horus Sec Mobile
+ * Copyright (c) 2026 Medhat Seif Abd El Hamid. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or distribution is prohibited.
+ */
 package com.horussec.mobile
 
 import android.content.Intent
@@ -40,13 +45,14 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalLayoutDirection provides if (L.ar) LayoutDirection.Rtl else LayoutDirection.Ltr) {
                     Surface(Modifier.fillMaxSize(), color = C.Navy, contentColor = Color.White) {
                         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                            BackHandler(enabled = App.screen != Screen.HOME && App.screen != Screen.SCANNING) { App.screen = Screen.HOME }
+                            BackHandler(enabled = App.screen != Screen.HOME && App.screen != Screen.SCANNING) { App.screen = if (App.screen == Screen.LEGAL) Screen.ABOUT else Screen.HOME }
                             when (App.screen) {
                                 Screen.HOME -> HomeScreen()
                                 Screen.SCANNING -> ScanningScreen()
                                 Screen.RESULT -> ResultScreen()
                                 Screen.LINK -> LinkScreen()
                                 Screen.ABOUT -> AboutScreen()
+                                Screen.LEGAL -> com.horussec.mobile.ui.LegalScreen()
                             }
                         }
                     }
@@ -73,7 +79,7 @@ class MainActivity : ComponentActivity() {
         if (i != null && BuildConfig.DEBUG) {
             // test hooks used by the automated smoke test (debug builds only)
             i.getStringExtra("horus_lang")?.let { App.setLang(it == "ar") }
-            when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME }
+            when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME; "legal" -> App.screen = Screen.LEGAL }
             if (i.getBooleanExtra("horus_autoscan", false)) App.startScan(deep = i.getBooleanExtra("horus_deep", true))
             if (i.getBooleanExtra("horus_rootmode", false)) { App.rootDetected = true; App.enableRoot() }
             if (i.hasExtra("horus_auto")) App.setAuto(i.getIntExtra("horus_auto", 0))

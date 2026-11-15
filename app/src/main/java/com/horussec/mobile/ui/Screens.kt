@@ -1,3 +1,8 @@
+/*
+ * Horus Sec Mobile
+ * Copyright (c) 2026 Medhat Seif Abd El Hamid. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or distribution is prohibited.
+ */
 package com.horussec.mobile.ui
 
 import androidx.compose.animation.core.LinearEasing
@@ -127,7 +132,7 @@ fun HomeScreen() {
             val intel = App.intel
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    "v" + BuildConfig.VERSION_NAME + "  ·  " + L.t("قاعدة التهديدات: ", "Threat intel: ") + (intel?.date?.ifEmpty { "—" } ?: "…"),
+                    "Horus Sec · " + L.t("مدحت سيف", "Medhat Seif") + "\nv" + BuildConfig.VERSION_NAME + "  ·  " + L.t("قاعدة التهديدات: ", "Threat intel: ") + (intel?.date?.ifEmpty { "—" } ?: "…"),
                     color = C.Dim, fontSize = 12.sp, modifier = Modifier.weight(1f),
                 )
                 SmallLink(L.t("عن البرنامج", "About")) { App.screen = Screen.ABOUT }
@@ -391,6 +396,7 @@ fun LinkScreen() {
 @Composable
 fun AboutScreen() {
     val intel = App.intel
+    val ctx = LocalContext.current
     Column(Modifier.fillMaxSize()) {
         TopBar(L.t("عن البرنامج", "About")) { App.screen = Screen.HOME }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -399,7 +405,23 @@ fun AboutScreen() {
                 Spacer(Modifier.width(12.dp))
                 Column {
                     Text("Horus Sec Mobile", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Text("v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})  ·  " + L.t("نسخة تجريبية", "test build"), color = C.Muted, fontSize = 13.sp)
+                    Text("v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", color = C.Muted, fontSize = 13.sp)
+                }
+            }
+            Panel {
+                Text(L.t("تطوير وملكية", "Developed and owned by"), color = C.Muted, fontSize = 13.sp)
+                Text(Owner.name(), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(L.t("صُنع في مصر 🇪🇬", "Made in Egypt 🇪🇬"), color = C.Gold, fontSize = 14.sp)
+                Text(Owner.copyright(), color = C.Text2, fontSize = 13.sp)
+                Text(L.t("ممنوع نسخ التطبيق أو تعديله أو إعادة نشره من غير إذن مكتوب.", "Copying, modifying or republishing the app without written permission is prohibited."), color = C.Dim, fontSize = 12.sp)
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Secondary(L.t("شروط الاستخدام", "Terms of use"), { LegalPage.page = 0; App.screen = Screen.LEGAL }, Modifier.weight(1f))
+                    Secondary(L.t("الخصوصية", "Privacy"), { LegalPage.page = 1; App.screen = Screen.LEGAL }, Modifier.weight(1f))
+                }
+                Secondary(L.t("التراخيص ومصادر البيانات", "Licences and data sources"), { LegalPage.page = 2; App.screen = Screen.LEGAL }, Modifier.fillMaxWidth())
+                SmallLink(L.t("تواصل مع المطوّر", "Contact the developer")) {
+                    try { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(Owner.contact)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { }
                 }
             }
             Panel {
@@ -426,10 +448,7 @@ fun AboutScreen() {
                 Text(L.t("الفحص بيتم على الموبايل بس. اللي بيخرج من الموبايل: تنزيل قاعدة التهديدات، ولما تفحص لينك بنطلب عنوان الصفحة بس (من غير ما نفتحها) ونسأل rdap.org عن عمر الدومين.",
                     "Scans run on the phone only. What leaves the phone: the threat-intel download, and when you check a link, a header-only request to that link and a domain-age lookup at rdap.org."), color = C.Text2, fontSize = 13.sp)
             }
-            Panel {
-                Text(L.t("المصادر", "Sources"), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text("Stalkerware indicators: Echap (CC BY 4.0)\nC2 / URLhaus / MalwareBazaar / ThreatFox: abuse.ch (CC0)\nExploited flaws: CISA Known Exploited Vulnerabilities\nDomain age: RDAP via rdap.org", color = C.Muted, fontSize = 12.sp, style = Ltr)
-            }
+
         }
     }
 }

@@ -1,3 +1,8 @@
+/*
+ * Horus Sec Mobile
+ * Copyright (c) 2026 Medhat Seif Abd El Hamid. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or distribution is prohibited.
+ */
 package com.horussec.mobile
 
 import android.content.Context
@@ -21,12 +26,18 @@ data class UpdateInfo(val code: Int, val name: String, val url: String, val sha2
  * to confirm; the app cannot update itself silently.
  */
 object Updater {
-    private const val META = "https://github.com/medhatsaif010/horus-mobile/releases/download/apk/version.json"
+    private val META = listOf(
+        "https://github.com/medhatsaif010/horus-mobile-releases/releases/download/apk/version.json",
+        "https://github.com/medhatsaif010/horus-mobile/releases/download/apk/version.json",
+    )
     private val allowedHosts = Regex("(^|\\.)(github\\.com|githubusercontent\\.com)$")
 
     /** Blocking. Returns the newer version, or null if this is the latest. Throws on network errors. */
     fun check(): UpdateInfo? {
-        val o = JSONObject(String(Intel.download(META, 20_000), Charsets.UTF_8))
+        var last: Exception? = null
+        var text: String? = null
+        for (u in META) { try { text = String(Intel.download(u, 20_000), Charsets.UTF_8); break } catch (e: Exception) { last = e } }
+        val o = JSONObject(text ?: throw (last ?: Exception("net")))
         val info = UpdateInfo(
             o.optInt("versionCode"), o.optString("versionName"), o.optString("url"),
             o.optString("sha256").lowercase(), o.optString("notes"),

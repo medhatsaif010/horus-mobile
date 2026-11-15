@@ -23,13 +23,27 @@ jobs:
           gradle-version: '8.11.1'
       - name: Build
         shell: bash
+        env:
+          HORUS_RELEASE_KEYSTORE_B64: ${{ secrets.HORUS_RELEASE_KEYSTORE }}
+          HORUS_RELEASE_STORE_PASSWORD: ${{ secrets.HORUS_RELEASE_STORE_PASSWORD }}
         run: |
           set -o pipefail
-          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+          if [ -n "$HORUS_RELEASE_KEYSTORE_B64" ]; then
+            echo "$HORUS_RELEASE_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            export HORUS_RELEASE_KEYSTORE_FILE="$RUNNER_TEMP/release.keystore"
+            echo "Signing the release build with the official key"
+          else
+            echo "No release key secret: the release build uses the public test key"
+          fi
+          gradle assembleDebug assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
+          rm -f "$RUNNER_TEMP/release.keystore"
+          mkdir -p apks
+          cp app/build/outputs/apk/debug/app-debug.apk apks/
+          cp app/build/outputs/apk/release/app-release.apk apks/
       - uses: actions/upload-artifact@v4
         with:
           name: apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: apks/
       - name: Publish build log
         if: failure()
         env:
@@ -84,20 +98,22 @@ jobs:
           name: apk
       - name: Publish APK and version.json
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN || github.token }}
+          RELEASES_REPO: ${{ secrets.RELEASES_TOKEN && 'medhatsaif010/horus-mobile-releases' || github.repository }}
         run: |
-          cp app-debug.apk HorusSec-Mobile.apk
+          cp app-release.apk HorusSec-Mobile.apk
           SHA=$(sha256sum HorusSec-Mobile.apk | cut -d' ' -f1)
           echo "$SHA  HorusSec-Mobile.apk" > HorusSec-Mobile.apk.sha256
           python3 - <<PY
           import json
           notes = open("release-notes.txt", encoding="utf-8").read().strip() if __import__("os").path.exists("release-notes.txt") else ""
           json.dump({"versionCode": ${{ github.run_number }}, "versionName": "1.0.${{ github.run_number }}",
-                     "url": "https://github.com/${{ github.repository }}/releases/download/apk/HorusSec-Mobile.apk",
+                     "url": "https://github.com/$RELEASES_REPO/releases/download/apk/HorusSec-Mobile.apk",
                      "sha256": "$SHA", "notes": notes}, open("version.json", "w", encoding="utf-8"), ensure_ascii=False)
           PY
           cat version.json
-          gh release delete apk -y --cleanup-tag || true
-          gh release create apk HorusSec-Mobile.apk HorusSec-Mobile.apk.sha256 version.json --prerelease \
+          echo "Publishing to $RELEASES_REPO"
+          gh release delete apk -R "$RELEASES_REPO" -y --cleanup-tag || true
+          gh release create apk -R "$RELEASES_REPO" HorusSec-Mobile.apk HorusSec-Mobile.apk.sha256 version.json --prerelease \
             --title "Horus Sec Mobile 1.0.${{ github.run_number }}" \
             --notes-file release-notes.txt

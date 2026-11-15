@@ -30,6 +30,10 @@ adb shell am start -n $A --ez horus_autoscan true
 shot 10-result-en 15
 adb shell am start -n $A --es horus_screen about
 shot 11-about-en 3
+adb shell am start -n $A --es horus_lang ar --es horus_screen about
+shot 11b-about-ar 3
+adb shell am start -n $A --es horus_screen legal
+shot 11c-legal-ar 3
 adb shell am start -n $A --es horus_lang ar --es horus_screen home
 sleep 3
 adb shell input swipe 160 560 160 80 300

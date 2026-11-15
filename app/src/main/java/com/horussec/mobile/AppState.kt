@@ -1,3 +1,8 @@
+/*
+ * Horus Sec Mobile
+ * Copyright (c) 2026 Medhat Seif Abd El Hamid. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or distribution is prohibited.
+ */
 package com.horussec.mobile
 
 import android.content.Context
@@ -11,7 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class Screen { HOME, SCANNING, RESULT, LINK, ABOUT }
+enum class Screen { HOME, SCANNING, RESULT, LINK, ABOUT, LEGAL }
 
 /** App-wide state. Lives as long as the process, so a rotation or theme change keeps the scan. */
 object App {

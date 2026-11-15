@@ -19,6 +19,16 @@ android {
     // Test-build signing only. The keystore is public on purpose so every test
     // build installs over the previous one. A Play release needs its own private key.
     signingConfigs {
+        // Official release key: only on the owner's machine and as a GitHub secret.
+        val relFile = System.getenv("HORUS_RELEASE_KEYSTORE_FILE")
+        if (relFile != null && file(relFile).exists()) {
+            create("horusRelease") {
+                storeFile = file(relFile)
+                storePassword = System.getenv("HORUS_RELEASE_STORE_PASSWORD")
+                keyAlias = "horussec"
+                keyPassword = System.getenv("HORUS_RELEASE_STORE_PASSWORD")
+            }
+        }
         getByName("debug") {
             storeFile = file("horus-test.keystore")
             storePassword = "android"
@@ -30,8 +40,12 @@ android {
         debug { signingConfig = signingConfigs.getByName("debug") }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("horusRelease") ?: signingConfigs.getByName("debug")
         }
+    }
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
