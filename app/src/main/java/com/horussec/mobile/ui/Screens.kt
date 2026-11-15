@@ -61,6 +61,7 @@ import com.horussec.mobile.Intel
 import com.horussec.mobile.L
 import com.horussec.mobile.Screen
 import com.horussec.mobile.Sev
+import com.horussec.mobile.Updater
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -94,6 +95,7 @@ fun HomeScreen() {
                     }
                 }
             }
+            UpdateBanner()
             Primary(L.t("افحص الموبايل", "Scan this phone"), { App.startScan() })
             if (App.result != null) Secondary(L.t("اعرض نتيجة آخر فحص", "Show the last result"), { App.screen = Screen.RESULT }, Modifier.fillMaxWidth())
 
@@ -360,6 +362,14 @@ fun AboutScreen() {
                 Text(L.t("الملف بيتقبل بس لو توقيعه الرقمي مطابق لمفتاح Horus Sec، فمحدش يقدر يبعت قاعدة مزيفة.", "A pack is accepted only if its digital signature matches the Horus Sec key, so nobody can push a fake one."), color = C.Dim, fontSize = 12.sp)
             }
             Panel {
+                Text(L.t("تحديث التطبيق", "App updates"), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(L.t("النسخة اللي عندك: ", "Installed version: ") + BuildConfig.VERSION_NAME, color = C.Text2, fontSize = 13.sp)
+                Spacer(Modifier.height(4.dp))
+                Secondary(if (App.updateBusy && App.updateProgress < 0) L.t("بيدوّر...", "Checking...") else L.t("دوّر على تحديث", "Check for updates"), { App.checkUpdate() }, Modifier.fillMaxWidth(), enabled = !App.updateBusy)
+                if (App.updateMsg.isNotEmpty() && App.update == null) Text(App.updateMsg, color = C.Gold, fontSize = 13.sp)
+            }
+            UpdateBanner()
+            Panel {
                 Text(L.t("خصوصيتك", "Your privacy"), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 Text(L.t("الفحص بيتم على الموبايل بس. اللي بيخرج من الموبايل: تنزيل قاعدة التهديدات، ولما تفحص لينك بنطلب عنوان الصفحة بس (من غير ما نفتحها) ونسأل rdap.org عن عمر الدومين.",
                     "Scans run on the phone only. What leaves the phone: the threat-intel download, and when you check a link, a header-only request to that link and a domain-age lookup at rdap.org."), color = C.Text2, fontSize = 13.sp)
@@ -369,5 +379,29 @@ fun AboutScreen() {
                 Text("Stalkerware indicators: Echap (CC BY 4.0)\nC2 / URLhaus / MalwareBazaar / ThreatFox: abuse.ch (CC0)\nExploited flaws: CISA Known Exploited Vulnerabilities\nDomain age: RDAP via rdap.org", color = C.Muted, fontSize = 12.sp, style = Ltr)
             }
         }
+    }
+}
+
+@Composable
+fun UpdateBanner() {
+    val u = App.update ?: return
+    val ctx = LocalContext.current
+    AccentPanel(C.Gold) {
+        Text(L.t("فيه نسخة جديدة: ", "New version available: ") + u.name, color = C.Gold, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        if (u.notes.isNotBlank()) Text(u.notes, color = C.Text2, fontSize = 13.sp)
+        Spacer(Modifier.height(6.dp))
+        if (App.needInstallPermission) {
+            Text(L.t("أندرويد محتاج تسمح لـ Horus Sec يسطّب التحديثات بتاعته. فعّل «Allow from this source» وارجع دوس تحديث تاني.",
+                "Android needs you to let Horus Sec install its own updates. Turn on «Allow from this source», come back and tap Update again."), color = Color.White, fontSize = 13.sp)
+            Secondary(L.t("افتح الإذن", "Open the permission"), { Updater.openInstallPermission(ctx) }, Modifier.fillMaxWidth())
+        }
+        val p = App.updateProgress
+        Primary(
+            when { p >= 0 -> L.t("بينزّل $p%", "Downloading $p%"); else -> L.t("نزّل وحدّث", "Download and update") },
+            { App.installUpdate() }, enabled = !App.updateBusy,
+        )
+        Text(L.t("بنتأكد إن الملف مطابق للنسخة الرسمية قبل التسطيب، وأندرويد هيسألك توافق. إعداداتك ونتايجك مش هتتمسح.",
+            "The file is checked against the official build before installing, and Android will ask you to confirm. Your settings and results are kept."), color = C.Dim, fontSize = 12.sp)
+        if (App.updateMsg.isNotEmpty()) Text(App.updateMsg, color = C.Red, fontSize = 13.sp)
     }
 }

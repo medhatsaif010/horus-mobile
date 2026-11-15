@@ -14,39 +14,22 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-
       - name: Build
         shell: bash
         run: |
           set -o pipefail
           gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
-
       - uses: actions/upload-artifact@v4
         with:
           name: apk
           path: app/build/outputs/apk/debug/app-debug.apk
-
-      - name: Publish APK
-        if: success()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          cp app/build/outputs/apk/debug/app-debug.apk HorusSec-Mobile.apk
-          sha256sum HorusSec-Mobile.apk > HorusSec-Mobile.apk.sha256
-          gh release delete apk -y --cleanup-tag || true
-          gh release create apk HorusSec-Mobile.apk HorusSec-Mobile.apk.sha256 build.log --prerelease \
-            --title "Horus Sec Mobile - test build #${{ github.run_number }}" \
-            --notes "Test build from commit ${{ github.sha }}. Install on Android 8 or newer."
-
       - name: Publish build log
         if: failure()
         env:
@@ -83,7 +66,38 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p shots
-          ls -la shots > shots/listing.txt 2>&1 || true
           gh release delete smoke -y --cleanup-tag || true
           gh release create smoke --prerelease --title "Smoke test #${{ github.run_number }}" --notes "Emulator screenshots and logs for ${{ github.sha }}" || true
-          for f in shots/*; do gh release upload smoke "$f" --clobber || echo "upload failed: $f"; done
+          for f in shots/*; do [ -s "$f" ] && { gh release upload smoke "$f" --clobber || echo "upload failed: $f"; }; done
+      - name: Fail on crash
+        run: |
+          if [ -s shots/crash.txt ]; then echo "App crashed on the emulator"; cat shots/crash.txt; exit 1; fi
+          grep -q "^pid: [0-9]" shots/package.txt || { echo "App not running at the end of the test"; exit 1; }
+
+  publish:
+    needs: smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+      - name: Publish APK and version.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app-debug.apk HorusSec-Mobile.apk
+          SHA=$(sha256sum HorusSec-Mobile.apk | cut -d' ' -f1)
+          echo "$SHA  HorusSec-Mobile.apk" > HorusSec-Mobile.apk.sha256
+          python3 - <<PY
+          import json
+          notes = open("release-notes.txt", encoding="utf-8").read().strip() if __import__("os").path.exists("release-notes.txt") else ""
+          json.dump({"versionCode": ${{ github.run_number }}, "versionName": "1.0.${{ github.run_number }}",
+                     "url": "https://github.com/${{ github.repository }}/releases/download/apk/HorusSec-Mobile.apk",
+                     "sha256": "$SHA", "notes": notes}, open("version.json", "w", encoding="utf-8"), ensure_ascii=False)
+          PY
+          cat version.json
+          gh release delete apk -y --cleanup-tag || true
+          gh release create apk HorusSec-Mobile.apk HorusSec-Mobile.apk.sha256 version.json --prerelease \
+            --title "Horus Sec Mobile 1.0.${{ github.run_number }}" \
+            --notes-file release-notes.txt

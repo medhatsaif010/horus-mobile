@@ -128,7 +128,7 @@ object Intel {
         return o
     }
 
-    private fun download(url: String, max: Int): ByteArray {
+    internal fun download(url: String, max: Int): ByteArray {
         var cur = URL(url)
         repeat(5) {
             val c = cur.openConnection() as HttpURLConnection

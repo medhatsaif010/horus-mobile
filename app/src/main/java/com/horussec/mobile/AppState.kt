@@ -33,6 +33,12 @@ object App {
     var intelBusy by mutableStateOf(false)
     var intelMsg by mutableStateOf("")
 
+    var update: UpdateInfo? by mutableStateOf(null)
+    var updateBusy by mutableStateOf(false)
+    var updateProgress by mutableIntStateOf(-1)
+    var updateMsg by mutableStateOf("")
+    var needInstallPermission by mutableStateOf(false)
+
     fun init(c: Context) {
         ctx = c.applicationContext
         Prefs.init(ctx)
@@ -45,6 +51,7 @@ object App {
             val checked = Prefs.long("intelChecked")
             if (age >= 2 && System.currentTimeMillis() - checked > 12 * 3600_000L) updateIntel(quiet = true)
         }
+        if (System.currentTimeMillis() - Prefs.long("updateChecked") > 6 * 3600_000L) checkUpdate(quiet = true)
     }
 
     fun setLang(ar: Boolean) {
@@ -100,6 +107,41 @@ object App {
                 else -> L.t("اتحدّثت قاعدة التهديدات.", "Threat intel updated.")
             }
             intelBusy = false
+        }
+    }
+
+    fun checkUpdate(quiet: Boolean = false) {
+        if (updateBusy) return
+        updateBusy = true
+        if (!quiet) updateMsg = ""
+        scope.launch {
+            val r = withContext(Dispatchers.IO) { try { Result.success(Updater.check()) } catch (e: Exception) { Result.failure(e) } }
+            r.onSuccess { info ->
+                update = info
+                if (!quiet && info == null) updateMsg = L.t("عندك آخر نسخة.", "You have the latest version.")
+            }.onFailure { if (!quiet) updateMsg = L.t("مقدرناش نوصل لسيرفر التحديث. اتأكد من النت.", "Could not reach the update server. Check your connection.") }
+            updateBusy = false
+        }
+    }
+
+    /** Download, verify and open Android's installer. Asks for the install permission first if needed. */
+    fun installUpdate() {
+        val info = update ?: return
+        if (updateBusy) return
+        if (!Updater.canInstall(ctx)) { needInstallPermission = true; return }
+        needInstallPermission = false
+        updateBusy = true; updateProgress = 0; updateMsg = ""
+        scope.launch {
+            val r = withContext(Dispatchers.IO) {
+                try { Result.success(Updater.download(ctx, info) { p -> scope.launch { updateProgress = p } }) } catch (e: Exception) { Result.failure(e) }
+            }
+            updateBusy = false; updateProgress = -1
+            r.onSuccess { f ->
+                try { Updater.install(ctx, f) } catch (e: Exception) { updateMsg = L.t("مقدرناش نفتح شاشة التسطيب.", "Could not open the installer.") }
+            }.onFailure { e ->
+                updateMsg = if (e.message == "sha") L.t("الملف اللي نزل مش مطابق للنسخة الرسمية، فاترفض ومتسطّبش.", "The download did not match the official build, so it was rejected and not installed.")
+                else L.t("التنزيل موقفش صح. جرّب تاني.", "The download did not finish. Try again.")
+            }
         }
     }
 }
