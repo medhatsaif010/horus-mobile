@@ -75,7 +75,7 @@ class MainActivity : ComponentActivity() {
             i.getStringExtra("horus_lang")?.let { App.setLang(it == "ar") }
             when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME }
             if (i.getBooleanExtra("horus_autoscan", false)) App.startScan(deep = i.getBooleanExtra("horus_deep", true))
-            if (i.getBooleanExtra("horus_rootmode", false)) App.enableRoot()
+            if (i.getBooleanExtra("horus_rootmode", false)) { App.rootDetected = true; App.enableRoot() }
             if (i.hasExtra("horus_auto")) App.setAuto(i.getIntExtra("horus_auto", 0))
             if (i.getBooleanExtra("horus_runworker", false)) androidx.work.WorkManager.getInstance(this).enqueue(androidx.work.OneTimeWorkRequestBuilder<ScanWorker>().build())
             if (i.getBooleanExtra("horus_testnotify", false)) AutoScan.notify(this, "Horus Sec: علامات اختراق على الموبايل", "تجربة: تنبيه الفحص التلقائي")

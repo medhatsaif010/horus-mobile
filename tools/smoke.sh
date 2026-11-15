@@ -46,6 +46,8 @@ adb shell input swipe 160 560 160 80 300
 adb shell input swipe 160 560 160 80 300
 adb shell input swipe 160 560 160 80 300
 shot 16-rootcard 3
+adb shell input swipe 160 560 160 300 300
+shot 17-rootcard-2 2
 adb shell am start -n $A --ei horus_auto 3 --ez horus_runworker true --es horus_screen home
 sleep 40
 adb shell am force-stop $P
