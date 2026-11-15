@@ -61,6 +61,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handle(i: Intent?) {
+        if (i != null && BuildConfig.DEBUG) {
+            // test hooks used by the automated smoke test (debug builds only)
+            i.getStringExtra("horus_lang")?.let { App.setLang(it == "ar") }
+            when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME }
+            if (i.getBooleanExtra("horus_autoscan", false)) App.startScan()
+        }
         if (i?.action != Intent.ACTION_SEND) return
         val text = i.getStringExtra(Intent.EXTRA_TEXT) ?: return
         App.linkResult = null
