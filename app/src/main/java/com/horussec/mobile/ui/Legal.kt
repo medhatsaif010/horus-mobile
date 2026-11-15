@@ -55,9 +55,9 @@ fun LegalScreen() {
             listOf(L.t("شروط الاستخدام", "Terms of use"), L.t("الخصوصية", "Privacy"), L.t("التراخيص", "Licences")).forEachIndexed { i, t ->
                 val sel = tab == i
                 Box(
-                    Modifier.clip(RoundedCornerShape(20.dp)).background(if (sel) C.Gold else C.NavyDark).clickable { tab = i }.padding(horizontal = 14.dp, vertical = 8.dp),
+                    Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(if (sel) C.Gold else C.NavyDark).clickable { tab = i }.padding(horizontal = 6.dp, vertical = 8.dp),
                     contentAlignment = Alignment.Center,
-                ) { Text(t, color = if (sel) C.Navy else Color.White, fontSize = 14.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal) }
+                ) { Text(t, color = if (sel) C.Navy else Color.White, fontSize = 13.sp, maxLines = 1, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal) }
             }
         }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
