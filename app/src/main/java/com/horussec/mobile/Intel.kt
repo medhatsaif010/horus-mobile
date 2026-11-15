@@ -25,6 +25,7 @@ class IntelData(
     val finance: List<Pair<String, Regex>>,
     val kev: List<Kev>,
     val malwareUrls: Set<String>,
+    val malwareHashes: Set<String> = emptySet(),
 ) {
     val byPackage: Map<String, Stalker> = buildMap { stalkerware.forEach { s -> s.packages.forEach { put(it, s) } } }
     val byCert: Map<String, Stalker> = buildMap { stalkerware.forEach { s -> s.certs.forEach { put(it.uppercase(), s) } } }
@@ -105,7 +106,9 @@ object Intel {
         }
         val urls = HashSet<String>()
         o.optJSONArray("malware_urls")?.let { a -> for (i in 0 until a.length()) urls.add(a.optString(i).lowercase()) }
-        return IntelData(o.optString("generatedAt", ""), source, st, doms, ips, fin, kev, urls)
+        val hashes = HashSet<String>()
+        o.optJSONArray("malware_sha256")?.let { a -> for (i in 0 until a.length()) hashes.add(a.optString(i).lowercase()) }
+        return IntelData(o.optString("generatedAt", ""), source, st, doms, ips, fin, kev, urls, hashes)
     }
 
     /** Full signed pack -> the small subset the phone needs. */
@@ -125,6 +128,7 @@ object Intel {
         o.put("finance_eg", full.optJSONArray("finance_eg") ?: JSONArray())
         o.put("android_kev", full.optJSONObject("kev")?.optJSONArray("android") ?: JSONArray())
         o.put("malware_urls", full.optJSONObject("malware")?.optJSONArray("urls") ?: JSONArray())
+        o.put("malware_sha256", full.optJSONObject("malware")?.optJSONArray("sha256") ?: JSONArray())
         return o
     }
 

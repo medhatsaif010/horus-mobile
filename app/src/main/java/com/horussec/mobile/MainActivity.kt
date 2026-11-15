@@ -58,6 +58,9 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (App.needInstallPermission && Updater.canInstall(this)) App.needInstallPermission = false
+        if (App.screen == Screen.HOME) App.refreshFromPrefs()
+        App.usageAccess = DeepScan.hasUsageAccess(this)
+        App.notifyAllowed = AutoScan.notificationsAllowed(this)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -70,8 +73,15 @@ class MainActivity : ComponentActivity() {
             // test hooks used by the automated smoke test (debug builds only)
             i.getStringExtra("horus_lang")?.let { App.setLang(it == "ar") }
             when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME }
-            if (i.getBooleanExtra("horus_autoscan", false)) App.startScan()
+            if (i.getBooleanExtra("horus_autoscan", false)) App.startScan(deep = i.getBooleanExtra("horus_deep", true))
+            if (i.getBooleanExtra("horus_testnotify", false)) AutoScan.notify(this, "Horus Sec: علامات اختراق على الموبايل", "تجربة: تنبيه الفحص التلقائي")
             if (i.getBooleanExtra("horus_fakeupdate", false)) App.update = UpdateInfo(BuildConfig.VERSION_CODE + 1, "1.0.${BuildConfig.VERSION_CODE + 1}", "https://github.com/medhatsaif010/horus-mobile/releases/download/apk/HorusSec-Mobile.apk", "0".repeat(64), "تجربة: شاشة التحديث")
+        }
+        if (i != null && i.getBooleanExtra("horus_open_result", false)) {
+            i.removeExtra("horus_open_result")
+            App.refreshFromPrefs()
+            App.startScan(deep = true)
+            return
         }
         if (i?.action != Intent.ACTION_SEND) return
         val text = i.getStringExtra(Intent.EXTRA_TEXT) ?: return

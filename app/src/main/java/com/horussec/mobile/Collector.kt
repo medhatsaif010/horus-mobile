@@ -41,7 +41,7 @@ object Collector {
     } catch (e: Exception) { null }
 
     @Suppress("DEPRECATION")
-    private fun certsOf(pm: PackageManager, pkg: String): List<String> = try {
+    private fun certsOf(pm: PackageManager, pkg: String): List<Pair<String, String>> = try {
         val sigs: Array<android.content.pm.Signature>? = if (Build.VERSION.SDK_INT >= 28) {
             val si = pm.getPackageInfo(pkg, PackageManager.GET_SIGNING_CERTIFICATES).signingInfo
             when {
@@ -52,7 +52,12 @@ object Collector {
         } else {
             pm.getPackageInfo(pkg, PackageManager.GET_SIGNATURES).signatures
         }
-        sigs?.map { sha1(it.toByteArray()) } ?: emptyList()
+        val cf = java.security.cert.CertificateFactory.getInstance("X.509")
+        sigs?.map { s ->
+            val b = s.toByteArray()
+            val subj = try { (cf.generateCertificate(java.io.ByteArrayInputStream(b)) as X509Certificate).subjectX500Principal.name } catch (e: Exception) { "" }
+            sha1(b) to subj
+        } ?: emptyList()
     } catch (e: Exception) { emptyList() }
 
     /** null = Android did not let us read it. */
@@ -69,7 +74,7 @@ object Collector {
         (s ?: "").split(':').mapNotNull { it.substringBefore('/').trim().ifEmpty { null } }.toSet()
 
     @Suppress("DEPRECATION")
-    fun collect(ctx: Context, progress: (Int) -> Unit): DeviceData {
+    fun collect(ctx: Context, deep: Boolean = false, progress: (Int) -> Unit): DeviceData {
         val pm = ctx.packageManager
         val cr = ctx.contentResolver
         progress(0)
@@ -96,6 +101,7 @@ object Collector {
             val requested = req.toSet()
             val label = try { pm.getApplicationLabel(ai).toString() } catch (e: Exception) { pi.packageName }
             val overlay = if (system) false else (opAllowed(ops, overlayOp, ai.uid, pi.packageName) ?: requested.contains(Manifest.permission.SYSTEM_ALERT_WINDOW))
+            val certs = if (system) emptyList() else certsOf(pm, pi.packageName)
             val canInstall = if (system || !requested.contains(Manifest.permission.REQUEST_INSTALL_PACKAGES)) false else opAllowed(ops, installOp, ai.uid, pi.packageName)
             apps.add(
                 AppInfo(
@@ -103,7 +109,7 @@ object Collector {
                     installer = if (system) null else installerOf(pm, pi.packageName),
                     firstInstall = pi.firstInstallTime, system = system, launcher = launcher.contains(pi.packageName),
                     granted = granted, requested = requested,
-                    certSha1 = if (system) emptyList() else certsOf(pm, pi.packageName),
+                    certSha1 = certs.map { it.first }, certSubjects = certs.map { it.second },
                     overlay = overlay, canInstall = canInstall,
                 )
             )
@@ -154,6 +160,7 @@ object Collector {
             soc = soc, maker = Build.MANUFACTURER ?: "", model = Build.MODEL ?: "",
             privateDnsActive = pdActive, privateDnsHost = pdHost, vpn = vpn, proxy = proxy, userCerts = certs,
             prev = loadSnapshot(),
+            deep = if (deep) DeepScan.collect(ctx, apps, { a -> Analyzer.isSideloaded(a, ctx.packageName) }, progress) else null,
         )
     }
 
@@ -161,16 +168,18 @@ object Collector {
         Prefs.str("snapshot")?.let { s ->
             val o = JSONObject(s)
             fun set(k: String): Set<String> { val a = o.optJSONArray(k) ?: JSONArray(); return (0 until a.length()).map { a.optString(it) }.toSet() }
-            Snapshot(set("apps"), set("acc"), set("admins"), if (o.has("score")) o.optInt("score") else null)
+            Snapshot(set("apps"), set("acc"), set("admins"), if (o.has("score")) o.optInt("score") else null, set("iocs"))
         }
     } catch (e: Exception) { null }
 
-    fun saveSnapshot(d: DeviceData, score: Int) {
+    fun saveSnapshot(d: DeviceData, r: ScanResult) {
+        val score = r.score
         val o = JSONObject()
         o.put("apps", JSONArray(d.apps.filter { !it.system }.map { it.pkg }))
         o.put("acc", JSONArray(d.accessibility.toList()))
         o.put("admins", JSONArray(d.admins.toList()))
         o.put("score", score)
+        o.put("iocs", JSONArray(r.findings.filter { it.ioc }.map { it.key }))
         o.put("at", d.atMillis)
         Prefs.put("snapshot", o.toString())
     }

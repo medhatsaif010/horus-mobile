@@ -71,6 +71,8 @@ data class ScanResult(
     val appCount: Int,
     val userAppCount: Int,
     val intelDate: String,
+    val deep: Boolean,
+    val iocCount: Int,
 )
 
 data class AppInfo(
@@ -84,6 +86,7 @@ data class AppInfo(
     val granted: Set<String>,
     val requested: Set<String>,
     val certSha1: List<String>,
+    val certSubjects: List<String>,
     val overlay: Boolean,
     val canInstall: Boolean?,
 )
@@ -93,6 +96,7 @@ data class Snapshot(
     val acc: Set<String>,
     val admins: Set<String>,
     val score: Int?,
+    val iocs: Set<String>,
 )
 
 data class DeviceData(
@@ -121,6 +125,7 @@ data class DeviceData(
     val proxy: String?,
     val userCerts: List<String>,
     val prev: Snapshot?,
+    val deep: DeepData?,
 )
 
 data class Signal(val level: String, val text: String)

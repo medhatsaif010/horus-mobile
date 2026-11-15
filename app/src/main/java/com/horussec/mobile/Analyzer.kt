@@ -26,6 +26,11 @@ object Analyzer {
     private val day = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
     private fun short(p: String) = p.removePrefix("android.permission.")
+    private val hookApps = setOf("de.robv.android.xposed.installer", "org.lsposed.manager", "io.github.lsposed.manager", "org.meowcat.edxposed.manager", "com.saurik.substrate", "io.va.exposed", "io.va.exposed64", "com.android.vending.billing.InAppBillingService.COIN")
+    private val systemLike = Regex("^(system|android system|system service|system update|settings|google play services|google services|wi-?fi|battery|update|device health|security update|تحديث النظام|خدمات النظام|الإعدادات|النظام|خدمات جوجل)$", RegexOption.IGNORE_CASE)
+    private val mdmInstallers = setOf("com.google.android.apps.work.clouddpc", "com.android.vending")
+
+    fun isSideloaded(a: AppInfo, selfPkg: String) = !a.system && a.pkg != selfPkg && (a.installer == null || a.installer !in stores)
 
     fun analyze(d: DeviceData, intel: IntelData): ScanResult {
         val findings = ArrayList<Finding>()
@@ -35,7 +40,7 @@ object Analyzer {
         val user = d.apps.filter { !it.system && it.pkg != d.selfPkg }
         fun name(p: String): String { val a = byPkg[p]; return if (a == null || a.label == p) p else "${a.label} ($p)" }
         fun date(p: String): String = byPkg[p]?.firstInstall?.let { if (it > 0) day.format(Date(it)) else "" } ?: ""
-        fun isSide(a: AppInfo) = !a.system && a.pkg != d.selfPkg && (a.installer == null || a.installer !in stores)
+        fun isSide(a: AppInfo) = isSideloaded(a, d.selfPkg)
         fun inst(a: AppInfo) = a.installer ?: L.t("ملف APK أو جهة مش معروفة", "APK file or unknown source")
 
         // 1. known stalkerware (by package name or by signing certificate)
@@ -271,6 +276,89 @@ object Analyzer {
             todo = L.t("حط PIN من 6 أرقام على الأقل.", "Set a PIN of at least 6 digits."), fixes = listOf(Fix.LOCK),
         ))
 
+        // 8b. deep scan
+        val deep = d.deep
+        if (deep != null) {
+            for ((pkg, h) in deep.apkHashes) {
+                if (h !in intel.malwareHashes || pkg in stalkerPkgs) continue
+                findings.add(Finding(
+                    key = "known-malware:$pkg", sev = Sev.CRIT, ioc = true, pkg = pkg,
+                    title = L.t("تطبيق خبيث معروف: ${byPkg[pkg]?.label ?: pkg}", "Known malware app: ${byPkg[pkg]?.label ?: pkg}"),
+                    why = L.t("بصمة ملف التطبيق (SHA-256) متسجلة في MalwareBazaar كبرمجية خبيثة.", "The app file's SHA-256 is listed in MalwareBazaar as malware."),
+                    todo = L.t("امسحه دلوقتي، وغيّر باسورد حساب Google وحسابات البنوك من جهاز تاني.", "Uninstall it now and change your Google and banking passwords from another device."),
+                    evidence = listOf("${L.t("التطبيق", "App")}: ${name(pkg)}", "SHA-256: $h"), fixes = listOf(Fix.UNINSTALL, Fix.APP_SETTINGS),
+                ))
+            }
+            for (a in user) {
+                if (a.pkg in skip || a.pkg in stalkerPkgs) continue
+                val pretendsSystem = systemLike.matches(a.label.trim()) || a.pkg.startsWith("com.android.") || a.pkg.startsWith("com.google.android.")
+                if (pretendsSystem && isSide(a)) findings.add(Finding(
+                    key = "fake-system:${a.pkg}", sev = Sev.HIGH, ioc = true, pkg = a.pkg,
+                    title = L.t("تطبيق متنكّر في شكل تطبيق نظام: ${a.label}", "App disguised as a system app: ${a.label}"),
+                    why = L.t("اسمه أو اسم حزمته شبه تطبيقات أندرويد أو Google، بس اتسطّب من برّه المتجر. برامج التجسس بتعمل كده علشان محدش يشك فيها.",
+                        "Its name or package looks like an Android or Google app, but it was installed from outside a store. Stalkerware does this to avoid suspicion."),
+                    todo = L.t("افتح إعداداته وشوف صلاحياته. لو مش إنت اللي مسطّبه، امسحه.", "Open its settings and review its permissions. If you did not install it, uninstall it."),
+                    evidence = listOf("${L.t("التطبيق", "App")}: ${name(a.pkg)}", "${L.t("المصدر", "Installer")}: ${inst(a)}", "${L.t("اتسطّب", "Installed")}: ${date(a.pkg)}") +
+                        (if (a.pkg in deep.bootReceivers) listOf(L.t("بيشتغل لوحده لما الموبايل يفتح", "Starts itself when the phone boots")) else emptyList()),
+                    fixes = listOf(Fix.APP_SETTINGS, Fix.UNINSTALL),
+                ))
+            }
+            val hooks = d.apps.filter { it.pkg in hookApps }
+            if (hooks.isNotEmpty()) findings.add(Finding(
+                key = "hooking", sev = Sev.HIGH, ioc = true,
+                title = L.t("أداة تعديل تطبيقات (Xposed / LSPosed) متسطّبة", "App-hooking framework installed (Xposed / LSPosed)"),
+                why = L.t("الأدوات دي بتسمح بتغيير سلوك أي تطبيق، ومنها تطبيقات البنوك، وبتستخدمها برامج تجسس متقدمة.", "These frameworks can change how any app behaves, including banking apps, and advanced spyware uses them."),
+                todo = L.t("لو مش إنت اللي مسطّبها، اعمل Factory reset.", "If you did not install it, factory reset the phone."),
+                evidence = hooks.map { name(it.pkg) },
+            ))
+            if (deep.dnsBad.isNotEmpty()) findings.add(Finding(
+                key = "dns-hijack", sev = Sev.HIGH, ioc = true,
+                title = L.t("الشبكة اللي إنت عليها بتغيّر عناوين المواقع (DNS)", "The network you are on changes site addresses (DNS)"),
+                why = L.t("سألنا عن مواقع عناوينها ثابتة ومعروفة، والرد جه بعناوين تانية. ده معناه إن الراوتر أو الشبكة ممكن تكون مخترقة وبتوديك لمواقع مزيفة.",
+                    "We looked up sites whose addresses are fixed and well known, and got different answers. The router or network may be compromised and sending you to fake sites."),
+                todo = L.t("اقطع الواي فاي ده وكمّل على باقة الموبايل، ومتدخلش حسابات البنك من الشبكة دي. ولو دي شبكة بيتك، افحصها من Horus Sec على الكمبيوتر وغيّر باسورد الراوتر.",
+                    "Leave this Wi-Fi and use mobile data, and do not open banking apps on this network. If it is your home network, check it with Horus Sec on a computer and change the router password."),
+                evidence = deep.dnsBad, fixes = listOf(Fix.NETWORK),
+            ))
+            deep.deviceOwner?.let { o ->
+                val a = byPkg[o]
+                if (a != null && !a.system && a.installer !in mdmInstallers) findings.add(Finding(
+                    key = "device-owner:$o", sev = Sev.HIGH, ioc = true, pkg = o,
+                    title = L.t("تطبيق متحكم في الموبايل بالكامل (Device owner): ${a.label}", "An app fully controls the phone (device owner): ${a.label}"),
+                    why = L.t("Device owner بيدّي التطبيق تحكم كامل: يقرا ويقفل ويمسح ويمنع حذف نفسه. ده طبيعي في موبايلات الشركات بس.",
+                        "A device owner has full control: it can monitor, lock, wipe and stop its own removal. That is only normal on company phones."),
+                    todo = L.t("لو ده مش موبايل شغل، اعمل Factory reset، لأنه مش هيتشال بالطريقة العادية.", "If this is not a work phone, factory reset it, because it cannot be removed normally."),
+                    evidence = listOf("${L.t("التطبيق", "App")}: ${name(o)}", "${L.t("المصدر", "Installer")}: ${inst(a)}"), fixes = listOf(Fix.SECURITY),
+                ))
+            }
+            for (a in user) {
+                val tx = deep.uploads[a.pkg] ?: continue
+                if (tx < 50L * 1024 * 1024 || a.pkg in stalkerPkgs) continue
+                val hiddenApp = !a.launcher
+                if (!hiddenApp && !isSide(a)) continue
+                findings.add(Finding(
+                    key = "uploads:${a.pkg}", sev = if (hiddenApp) Sev.HIGH else Sev.MED, ioc = hiddenApp, pkg = a.pkg,
+                    title = L.t("${a.label} رفع ${tx / (1024 * 1024)} ميجا في آخر 7 أيام", "${a.label} uploaded ${tx / (1024 * 1024)} MB in the last 7 days"),
+                    why = if (hiddenApp) L.t("تطبيق مخفي بيبعت بيانات كتير لبرّه. ده الشكل المعتاد لبرامج التجسس اللي بتبعت الصور والتسجيلات.", "A hidden app sending a lot of data out. That is how stalkerware uploading photos and recordings usually looks.")
+                    else L.t("تطبيق من برّه المتجر بيبعت بيانات كتير. ممكن يكون طبيعي (نسخ احتياطي مثلًا)، وممكن لأ.", "A sideloaded app sending a lot of data. It may be normal (a backup app, say), or not."),
+                    todo = L.t("لو مش عارف التطبيق ده بيرفع إيه، امسحه.", "If you do not know what this app uploads, uninstall it."),
+                    evidence = listOf("${L.t("التطبيق", "App")}: ${name(a.pkg)}", "Upload: ${tx / (1024 * 1024)} MB / 7d"), fixes = listOf(Fix.APP_SETTINGS, Fix.UNINSTALL),
+                ))
+            }
+            val debugSigned = user.filter { isSide(it) && it.certSubjects.any { s -> s.contains("CN=Android Debug", true) } && it.pkg !in skip }
+            if (debugSigned.isNotEmpty()) findings.add(Finding(
+                key = "debug-signed", sev = Sev.LOW,
+                title = L.t("تطبيقات متوقّعة بتوقيع تجريبي (${debugSigned.size})", "Apps signed with a test key (${debugSigned.size})"),
+                why = L.t("التطبيقات الحقيقية بتتوقّع بمفتاح الشركة. التوقيع التجريبي معناه إن حد عمل التطبيق ده بنفسه أو عدّل عليه.", "Real apps are signed with their maker's key. A test signature means someone built or modified this app themselves."),
+                todo = L.t("سيبه بس لو إنت عارف مين عامله.", "Keep it only if you know who made it."), evidence = debugSigned.map { name(it.pkg) },
+            ))
+            if (!deep.usageAccess) verified.add(L.t("فحص استهلاك البيانات متعملش: محتاج إذن Usage access", "Data-usage check skipped: needs Usage access"))
+            if (deep.apkHashes.isNotEmpty()) verified.add(
+                if (intel.malwareHashes.isEmpty()) L.t("اتحسبت بصمة ${deep.apkHashes.size} تطبيق، بس قايمة البصمات الخبيثة لسه فاضية في قاعدة التهديدات", "${deep.apkHashes.size} app fingerprints taken, but the malware-hash list is still empty in the threat intel")
+                else L.t("بصمات ${deep.apkHashes.size} تطبيق من برّه المتجر مش في قايمة البرمجيات الخبيثة (${intel.malwareHashes.size})", "${deep.apkHashes.size} sideloaded app fingerprints are not in the malware list (${intel.malwareHashes.size})"))
+            if (deep.dnsChecked && deep.dnsBad.isEmpty()) verified.add(L.t("الـ DNS على الشبكة دي بيرد صح", "DNS on this network answers honestly"))
+        }
+
         // 9. hardening checklist
         val P = CheckState.PASS; val W = CheckState.WARN; val F = CheckState.FAIL
         checks.add(Check(L.t("قفل الشاشة", "Screen lock"), if (d.secure) P else F, if (d.secure) L.t("موجود", "Set") else L.t("مفيش", "None"), L.t("PIN أقوى من Pattern", "A PIN is stronger than a pattern"), Fix.LOCK))
@@ -341,6 +429,7 @@ object Analyzer {
             atMillis = d.atMillis, score = score, grade = grade, verdict = verdict, headline = headline,
             findings = sorted, checks = checks, changes = changes, verified = verified, exposure = exposure,
             appCount = d.apps.size, userAppCount = user.size, intelDate = intel.date,
+            deep = d.deep != null, iocCount = sorted.count { it.ioc },
         )
     }
 }

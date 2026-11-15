@@ -24,6 +24,11 @@ object App {
     var result: ScanResult? by mutableStateOf(null)
     var lastScore by mutableStateOf<Int?>(null)
     var lastScanAt by mutableStateOf(0L)
+    var lastVerdict by mutableStateOf<String?>(null)
+    var scanDeep by mutableStateOf(false)
+    var autoHours by mutableIntStateOf(0)
+    var usageAccess by mutableStateOf(false)
+    var notifyAllowed by mutableStateOf(true)
 
     var linkText by mutableStateOf("")
     var linkBusy by mutableStateOf(false)
@@ -45,6 +50,8 @@ object App {
         L.ar = (Prefs.str("lang") ?: "ar") == "ar"
         lastScore = Prefs.str("lastScore")?.toIntOrNull()
         lastScanAt = Prefs.long("lastScanAt")
+        lastVerdict = Prefs.str("lastVerdict")
+        autoHours = AutoScan.hours()
         if (intel == null) scope.launch {
             intel = withContext(Dispatchers.IO) { Intel.get(ctx) }
             val age = intel?.let { Intel.ageDays(it) } ?: 99
@@ -61,21 +68,34 @@ object App {
         if (d != null && i != null) result = Analyzer.analyze(d, i)
     }
 
-    fun startScan() {
+    fun refreshFromPrefs() {
+        lastScore = Prefs.str("lastScore")?.toIntOrNull()
+        lastScanAt = Prefs.long("lastScanAt")
+        lastVerdict = Prefs.str("lastVerdict")
+    }
+
+    fun setAuto(h: Int) {
+        autoHours = h
+        AutoScan.apply(ctx, h)
+    }
+
+    fun startScan(deep: Boolean = true) {
         if (screen == Screen.SCANNING) return
+        scanDeep = deep
         screen = Screen.SCANNING
         scanStep = 0
         scope.launch {
             val started = System.currentTimeMillis()
             val i = intel ?: withContext(Dispatchers.IO) { Intel.get(ctx) }.also { intel = it }
-            val d = withContext(Dispatchers.IO) { Collector.collect(ctx) { step -> scope.launch { scanStep = step } } }
+            val d = withContext(Dispatchers.IO) { Collector.collect(ctx, deep) { step -> scope.launch { scanStep = step } } }
             val r = withContext(Dispatchers.Default) { Analyzer.analyze(d, i) }
             val wait = 1800 - (System.currentTimeMillis() - started)
             if (wait > 0) delay(wait)
-            withContext(Dispatchers.IO) { Collector.saveSnapshot(d, r.score) }
+            withContext(Dispatchers.IO) { Collector.saveSnapshot(d, r) }
             device = d; result = r
             lastScore = r.score; lastScanAt = r.atMillis
             Prefs.put("lastScore", r.score.toString()); Prefs.putLong("lastScanAt", r.atMillis)
+            lastVerdict = r.verdict; Prefs.put("lastVerdict", r.verdict)
             screen = Screen.RESULT
         }
     }

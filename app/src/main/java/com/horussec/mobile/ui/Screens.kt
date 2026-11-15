@@ -62,6 +62,9 @@ import com.horussec.mobile.L
 import com.horussec.mobile.Screen
 import com.horussec.mobile.Sev
 import com.horussec.mobile.Updater
+import com.horussec.mobile.AutoScan
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -84,6 +87,11 @@ fun HomeScreen() {
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
                         if (last != null) {
+                            App.lastVerdict?.let { v ->
+                                Text(L.t("الموبايل مخترق؟", "Is the phone compromised?"), color = C.Muted, fontSize = 13.sp)
+                                Text(answerOf(v), color = verdictColor(v), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(4.dp))
+                            }
                             Text(L.t("رقم الأمان", "Security score"), color = C.Muted, fontSize = 13.sp)
                             Text(App.result?.grade ?: gradeOf(last), color = scoreColor(last), fontSize = 22.sp, fontWeight = FontWeight.Bold)
                             Text(L.t("آخر فحص: ", "Last scan: ") + stamp.format(Date(App.lastScanAt)), color = C.Muted, fontSize = 12.sp, style = Ltr)
@@ -96,7 +104,8 @@ fun HomeScreen() {
                 }
             }
             UpdateBanner()
-            Primary(L.t("افحص الموبايل", "Scan this phone"), { App.startScan() })
+            Primary(L.t("فحص عميق", "Deep scan"), { App.startScan(deep = true) })
+            Secondary(L.t("فحص سريع (ثواني)", "Quick scan (seconds)"), { App.startScan(deep = false) }, Modifier.fillMaxWidth())
             if (App.result != null) Secondary(L.t("اعرض نتيجة آخر فحص", "Show the last result"), { App.screen = Screen.RESULT }, Modifier.fillMaxWidth())
 
             Panel {
@@ -107,6 +116,7 @@ fun HomeScreen() {
                 Secondary(L.t("افحص لينك", "Check a link"), { App.linkResult = null; App.screen = Screen.LINK }, Modifier.fillMaxWidth())
             }
 
+            AutoScanCard()
             Panel {
                 Text(L.t("للقراءة بس", "Read-only"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 Text(L.t("Horus Sec مش بيمسح ولا بيغيّر حاجة لوحده، ومش بيقرا رسايلك ولا صورك، ومش بيبعت بيانات الموبايل لأي سيرفر. كل تصليح إنت اللي بتعمله بزرار بيفتحلك الإعداد الصح.",
@@ -136,7 +146,11 @@ fun ScanningScreen() {
         L.t("بيفحص الصلاحيات القوية", "Checking powerful access"),
         L.t("بيفحص الشبكة والشهادات", "Checking network and certificates"),
         L.t("بيحسب النتيجة", "Working out the result"),
-    )
+    ) + (if (App.scanDeep) listOf(
+        L.t("فحص عميق: بيحسب بصمات التطبيقات", "Deep: fingerprinting apps"),
+        L.t("فحص عميق: بيختبر الـ DNS والتحكم في الموبايل", "Deep: testing DNS and device control"),
+        L.t("فحص عميق: بيراجع البيانات اللي اتبعتت", "Deep: reviewing data sent out"),
+    ) else emptyList())
     val t = rememberInfiniteTransition(label = "pulse")
     val a by t.animateFloat(0.35f, 1f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse), label = "a")
     Column(Modifier.fillMaxSize().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
@@ -170,6 +184,15 @@ fun ResultScreen() {
                 Spacer(Modifier.height(8.dp))
                 val vc = when (r.verdict) { "compromised" -> C.Red; "suspicious" -> C.Gold; else -> C.Green }
                 AccentPanel(vc) {
+                    Text(L.t("الموبايل مخترق؟", "Is the phone compromised?"), color = C.Muted, fontSize = 14.sp)
+                    Text(answerOf(r.verdict), color = vc, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    val iocs = r.findings.filter { it.ioc }
+                    if (iocs.isNotEmpty()) {
+                        Text(L.t("علامات الاختراق اللي لقيناها (${iocs.size}):", "Signs of compromise found (${iocs.size}):"), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        iocs.take(5).forEach { Text("• ${it.title}", color = sevColor(it.sev), fontSize = 13.sp) }
+                    }
+                    Text(if (r.deep) L.t("فحص عميق", "Deep scan") else L.t("فحص سريع: الفحص العميق بيدوّر أكتر", "Quick scan: a deep scan looks further"), color = C.Dim, fontSize = 12.sp)
+                    Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         ScoreRing(r.score, 108.dp)
                         Spacer(Modifier.width(14.dp))
@@ -182,7 +205,7 @@ fun ResultScreen() {
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Secondary(L.t("افحص تاني", "Scan again"), { App.startScan() }, Modifier.weight(1f))
+                    Secondary(if (r.deep) L.t("افحص تاني", "Scan again") else L.t("فحص عميق", "Deep scan"), { App.startScan(deep = true) }, Modifier.weight(1f))
                     Secondary(L.t("شارك الملخص", "Share summary"), { Actions.shareText(ctx, Actions.summary(r, App.device)) }, Modifier.weight(1f))
                 }
             }
@@ -403,5 +426,58 @@ fun UpdateBanner() {
         Text(L.t("بنتأكد إن الملف مطابق للنسخة الرسمية قبل التسطيب، وأندرويد هيسألك توافق. إعداداتك ونتايجك مش هتتمسح.",
             "The file is checked against the official build before installing, and Android will ask you to confirm. Your settings and results are kept."), color = C.Dim, fontSize = 12.sp)
         if (App.updateMsg.isNotEmpty()) Text(App.updateMsg, color = C.Red, fontSize = 13.sp)
+    }
+}
+
+fun answerOf(v: String): String = when (v) {
+    "compromised" -> L.t("غالبًا أيوه: فيه علامات اختراق", "Probably yes: signs of compromise")
+    "suspicious" -> L.t("مش متأكدين: فيه حاجات محتاجة تتأكد منها", "Not sure: some things need checking")
+    else -> L.t("لأ، مفيش علامات اختراق", "No signs of compromise")
+}
+
+fun verdictColor(v: String): Color = when (v) { "compromised" -> C.Red; "suspicious" -> C.Gold; else -> C.Green }
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun AutoScanCard() {
+    val ctx = LocalContext.current
+    val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> App.notifyAllowed = ok }
+    Panel {
+        Text(L.t("الفحص التلقائي", "Automatic scan"), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(L.t("Horus Sec يعمل فحص عميق لوحده في الخلفية، ويبعتلك تنبيه بس لو ظهرت علامة اختراق أو تطبيق جديد أخد صلاحيات خطيرة.",
+            "Horus Sec runs a deep scan on its own in the background, and only alerts you if a sign of compromise appears or a new app gets risky access."), color = C.Text2, fontSize = 13.sp)
+        Spacer(Modifier.height(6.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AutoScan.choices.forEach { h ->
+                val sel = App.autoHours == h
+                val label = if (h == 0) L.t("مقفول", "Off") else L.t("كل $h ساعات", "Every $h h").replace("كل 12 ساعات", "كل 12 ساعة").replace("كل 24 ساعات", "كل يوم")
+                Box(
+                    Modifier.clip(RoundedCornerShape(20.dp)).background(if (sel) C.Gold else C.NavyDark)
+                        .clickable {
+                            App.setAuto(h)
+                            if (h > 0 && android.os.Build.VERSION.SDK_INT >= 33 && !AutoScan.notificationsAllowed(ctx)) askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                        }.padding(horizontal = 14.dp, vertical = 8.dp),
+                ) { Text(label, color = if (sel) C.Navy else Color.White, fontSize = 14.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal) }
+            }
+        }
+        if (App.autoHours > 0) {
+            val last = com.horussec.mobile.Prefs.long("lastAutoScan")
+            Text(if (last > 0) L.t("آخر فحص تلقائي: ", "Last automatic scan: ") + stamp.format(Date(last)) else L.t("أول فحص تلقائي بعد ${App.autoHours} ساعات. أندرويد ممكن يأخّره شوية علشان البطارية.", "First automatic scan in ${App.autoHours} hours. Android may delay it a little to save battery."), color = C.Muted, fontSize = 12.sp)
+            if (!App.notifyAllowed) {
+                Text(L.t("التنبيهات مقفولة لـ Horus Sec، فمش هتعرف لو الفحص لقى حاجة.", "Notifications are off for Horus Sec, so you will not hear about findings."), color = C.Gold, fontSize = 13.sp)
+                SmallLink(L.t("شغّل التنبيهات", "Turn on notifications")) {
+                    if (android.os.Build.VERSION.SDK_INT >= 33) askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    else try { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { }
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(L.t("استهلاك البيانات", "Data usage"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        if (App.usageAccess) Text(L.t("✓ مسموح: الفحص العميق بيشوف التطبيقات المخفية اللي بتبعت بيانات كتير.", "✓ Allowed: the deep scan spots hidden apps sending lots of data."), color = C.Green, fontSize = 13.sp)
+        else {
+            Text(L.t("اسمح بـ Usage access علشان الفحص العميق يكشف التطبيقات اللي بتبعت صورك وتسجيلاتك لبرّه. Horus Sec بيشوف الأرقام بس، مش المحتوى.",
+                "Allow Usage access so the deep scan can spot apps sending your photos and recordings out. Horus Sec sees only the numbers, never the content."), color = C.Text2, fontSize = 13.sp)
+            SmallLink(L.t("اسمح بـ Usage access", "Allow Usage access")) { com.horussec.mobile.DeepScan.openUsageAccess(ctx) }
+        }
     }
 }
