@@ -117,6 +117,7 @@ fun HomeScreen() {
             }
 
             AutoScanCard()
+            RootCard()
             Panel {
                 Text(L.t("للقراءة بس", "Read-only"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 Text(L.t("Horus Sec مش بيمسح ولا بيغيّر حاجة لوحده، ومش بيقرا رسايلك ولا صورك، ومش بيبعت بيانات الموبايل لأي سيرفر. كل تصليح إنت اللي بتعمله بزرار بيفتحلك الإعداد الصح.",
@@ -177,6 +178,7 @@ fun ResultScreen() {
     val r = App.result ?: run { App.screen = Screen.HOME; return }
     val ctx = LocalContext.current
     var confirm by remember { mutableStateOf<Finding?>(null) }
+    var rootAsk by remember { mutableStateOf<Pair<Finding, Fix>?>(null) }
     Column(Modifier.fillMaxSize()) {
         TopBar(L.t("نتيجة الفحص", "Scan result")) { App.screen = Screen.HOME }
         LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -214,7 +216,13 @@ fun ResultScreen() {
                 item { Panel { r.changes.forEach { Text("• $it", color = Color.White, fontSize = 14.sp) } } }
             }
             item { SectionTitle(if (r.findings.isEmpty()) L.t("مفيش حاجة محتاجة تتصرف فيها", "Nothing needs action") else L.t("محتاج تتصرف فيه (${r.findings.size})", "Needs action (${r.findings.size})")) }
-            items(r.findings, key = { it.key }) { f -> FindingCard(f) { fx -> if (fx == Fix.UNINSTALL && f.stalker) confirm = f else Actions.open(ctx, fx, f.pkg) } }
+            items(r.findings, key = { it.key }) { f -> FindingCard(f) { fx ->
+                when {
+                    fx == Fix.UNINSTALL && f.stalker -> confirm = f
+                    fx == Fix.ROOT_STOP || fx == Fix.ROOT_DISABLE || fx == Fix.ROOT_BLOCKNET -> rootAsk = f to fx
+                    else -> Actions.open(ctx, fx, f.pkg)
+                }
+            } }
             item { SectionTitle(L.t("إعدادات الأمان", "Security settings")) }
             item { Panel { r.checks.forEach { CheckRow(it) } } }
             item { SectionTitle(L.t("مين يقدر يسمعك ويشوفك", "Who can hear and see you")) }
@@ -242,6 +250,27 @@ fun ResultScreen() {
                 )
             }
         }
+    }
+    rootAsk?.let { (f, fx) ->
+        val what = when (fx) {
+            Fix.ROOT_STOP -> L.t("هيقفل التطبيق دلوقتي. لو بيشتغل لوحده هيرجع تاني بعد شوية.", "This closes the app now. If it starts itself, it will come back later.")
+            Fix.ROOT_DISABLE -> L.t("هيعطّل التطبيق بالكامل لحد ما ترجّعه. بياناته مش هتتمسح، وتقدر ترجّعه من الشاشة الرئيسية.", "This disables the app until you restore it. Its data is kept, and you can restore it from the home screen.")
+            else -> L.t("هيمنع التطبيق يوصل للنت لحد ما ترجّعه أو تعمل Restart للموبايل.", "This blocks the app from the internet until you restore it or restart the phone.")
+        }
+        AlertDialog(
+            onDismissRequest = { rootAsk = null },
+            containerColor = C.Card, titleContentColor = Color.White, textContentColor = C.Text2,
+            title = { Text(Actions.label(fx)) },
+            text = { Text(what + "\n\n" + (f.pkg ?: "") + if (f.stalker) L.t("\n\nاللي سطّب برنامج التجسس ممكن يلاحظ.", "\n\nWhoever installed the stalkerware may notice.") else "") },
+            confirmButton = { TextButton(onClick = { rootAsk = null; f.pkg?.let { App.rootAction(fx, it) } }) { Text(L.t("نفّذ", "Do it"), color = C.Red) } },
+            dismissButton = { TextButton(onClick = { rootAsk = null }) { Text(L.t("إلغاء", "Cancel"), color = C.Gold) } },
+        )
+    }
+    if (App.rootMsg.isNotEmpty() && App.screen == Screen.RESULT) {
+        AlertDialog(
+            onDismissRequest = { App.rootMsg = "" }, containerColor = C.Card, textContentColor = Color.White,
+            text = { Text(App.rootMsg) }, confirmButton = { TextButton(onClick = { App.rootMsg = "" }) { Text("OK", color = C.Gold) } },
+        )
     }
     confirm?.let { f ->
         AlertDialog(
@@ -479,5 +508,36 @@ fun AutoScanCard() {
                 "Allow Usage access so the deep scan can spot apps sending your photos and recordings out. Horus Sec sees only the numbers, never the content."), color = C.Text2, fontSize = 13.sp)
             SmallLink(L.t("اسمح بـ Usage access", "Allow Usage access")) { com.horussec.mobile.DeepScan.openUsageAccess(ctx) }
         }
+    }
+}
+
+@Composable
+fun RootCard() {
+    if (!App.rootDetected && !App.rootOn) return
+    val ctx = LocalContext.current
+    AccentPanel(if (App.rootOn) C.Gold else C.Border) {
+        Text(L.t("وضع Root (للخبراء)", "Root mode (experts)"), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        if (!App.rootOn) {
+            Text(L.t("الموبايل ده عليه Root. لو سمحت لـ Horus Sec بالصلاحية، الفحص العميق هيشوف الاتصالات الشغالة لكل تطبيق ويقارنها بسيرفرات التحكم المعروفة، والبرامج الشغالة، وموديولات Magisk، وسكربتات الإقلاع، وملف hosts، وتحويل الترافيك. وهيقدر يوقّف أو يعطّل أو يقطع النت عن تطبيق خطر بعد موافقتك.",
+                "This phone is rooted. If you grant Horus Sec root, the deep scan checks every app's live connections against known command servers, running programs, Magisk modules, boot scripts, the hosts file and traffic redirection. It can also stop, disable or cut the internet of a dangerous app after you confirm."), color = C.Text2, fontSize = 13.sp)
+            Text(L.t("الـ Root نفسه بيضعّف حماية أندرويد. Horus Sec بيستخدمه للقراءة، ومش بيغيّر حاجة غير بموافقتك على كل خطوة.", "Root itself weakens Android's protection. Horus Sec uses it to read, and changes nothing without your consent for each step."), color = C.Dim, fontSize = 12.sp)
+            Spacer(Modifier.height(4.dp))
+            Secondary(if (App.rootBusy) L.t("مستني موافقة Magisk...", "Waiting for Magisk...") else L.t("فعّل وضع Root", "Turn on root mode"), { App.enableRoot() }, Modifier.fillMaxWidth(), enabled = !App.rootBusy)
+        } else {
+            Text(L.t("✓ شغال: الفحص العميق والفحص التلقائي بيستخدموه.", "✓ On: deep and automatic scans use it."), color = C.Green, fontSize = 13.sp)
+            Spacer(Modifier.height(4.dp))
+            Secondary(if (App.rootBusy) L.t("بيجمع...", "Collecting...") else L.t("صدّر سجلات النظام كدليل", "Export system logs as evidence"), { App.exportEvidence(ctx) }, Modifier.fillMaxWidth(), enabled = !App.rootBusy)
+            if (App.rootUndo.isNotEmpty()) {
+                Text(L.t("اللي Horus Sec عطّله أو قطع عنه النت:", "Apps Horus Sec disabled or cut off:"), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                App.rootUndo.forEach { u ->
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text((if (u.kind == "block") L.t("نت مقطوع: ", "No internet: ") else L.t("متعطّل: ", "Disabled: ")) + u.pkg, color = C.Text2, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        SmallLink(L.t("رجّع", "Restore")) { App.rootUndoAction(u) }
+                    }
+                }
+            }
+            SmallLink(L.t("اقفل وضع Root", "Turn off root mode")) { App.disableRoot() }
+        }
+        if (App.rootMsg.isNotEmpty() && App.screen == Screen.HOME) Text(App.rootMsg, color = C.Gold, fontSize = 13.sp)
     }
 }

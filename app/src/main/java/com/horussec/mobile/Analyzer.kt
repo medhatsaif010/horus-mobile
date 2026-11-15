@@ -281,6 +281,18 @@ object Analyzer {
         if (deep != null) {
             for ((pkg, h) in deep.apkHashes) {
                 if (h !in intel.malwareHashes || pkg in stalkerPkgs) continue
+                if (byPkg[pkg]?.system == true) {
+                    findings.add(Finding(
+                        key = "preloaded-malware:$pkg", sev = Sev.CRIT, ioc = true, pkg = pkg,
+                        title = L.t("تطبيق نظام خبيث جاي مع الموبايل: ${byPkg[pkg]?.label ?: pkg}", "Malicious system app shipped with the phone: ${byPkg[pkg]?.label ?: pkg}"),
+                        why = L.t("بصمة التطبيق ده متسجلة كبرمجية خبيثة، وهو متسطّب كتطبيق نظام، يعني جه مع الموبايل من المصنع أو من البايع. ده بيحصل في بعض الموبايلات الرخيصة.",
+                            "This app's fingerprint is listed as malware, and it is installed as a system app, so it came with the phone from the factory or the seller. This happens on some cheap phones."),
+                        todo = L.t("مش هيتمسح بالطريقة العادية. من إعدادات التطبيق دوس Disable لو متاح، ورجّع الموبايل للبايع أو نزّل السوفت وير الرسمي من الشركة. ومتستخدمش الموبايل ده لحسابات البنك.",
+                            "It cannot be uninstalled normally. Tap Disable in its app settings if available, return the phone to the seller or install the official firmware, and do not use this phone for banking."),
+                        evidence = listOf("${L.t("التطبيق", "App")}: ${name(pkg)}", "SHA-256: $h", L.t("تطبيق نظام", "System app")), fixes = listOf(Fix.APP_SETTINGS),
+                    ))
+                    continue
+                }
                 findings.add(Finding(
                     key = "known-malware:$pkg", sev = Sev.CRIT, ioc = true, pkg = pkg,
                     title = L.t("تطبيق خبيث معروف: ${byPkg[pkg]?.label ?: pkg}", "Known malware app: ${byPkg[pkg]?.label ?: pkg}"),
@@ -359,6 +371,88 @@ object Analyzer {
             if (deep.dnsChecked && deep.dnsBad.isEmpty()) verified.add(L.t("الـ DNS على الشبكة دي بيرد صح", "DNS on this network answers honestly"))
         }
 
+        // 8c. root mode (only when the user turned it on and granted su)
+        val root = d.root
+        if (root != null && !root.ok) verified.add(L.t("وضع Root مفعّل بس صلاحية su مرفوضة، فالفحص بـ Root متعملش", "Root mode is on but su was refused, so the root checks did not run"))
+        if (root != null && root.ok) {
+            val byConn = root.conns.groupBy { it.pkg }
+            for ((p, cs) in byConn) {
+                val hits = cs.mapNotNull { c -> intel.c2Ips[c.remote]?.let { tag -> "${c.remote}:${c.port} (${c.proto}) → $tag" } }.distinct()
+                if (hits.isEmpty()) continue
+                val label = p.split(',').firstOrNull()?.let { byPkg[it]?.label } ?: p
+                val pk = p.split(',').firstOrNull()?.takeIf { byPkg.containsKey(it) }
+                findings.add(Finding(
+                    key = "c2-conn:$p", sev = Sev.CRIT, ioc = true, pkg = pk,
+                    title = L.t("$label متصل دلوقتي بسيرفر تحكم معروف", "$label is connected right now to a known command server"),
+                    why = L.t("العنوان اللي التطبيق متصل بيه متسجل في قواعد التهديدات كسيرفر بيتحكم في برمجيات خبيثة. ده مش احتمال، ده اتصال شغال دلوقتي.",
+                        "The address this app is talking to is listed in threat intel as a malware command server. This is not a guess: the connection is live now."),
+                    todo = L.t("اقطع النت عن التطبيق ده أو عطّله من هنا، واحفظ الدليل، وبعدين امسحه وغيّر باسورداتك من جهاز تاني.",
+                        "Cut this app's internet or disable it from here, save the evidence, then remove it and change your passwords from another device."),
+                    evidence = listOf("${L.t("التطبيق", "App")}: $p") + hits.take(8),
+                    fixes = if (pk != null) listOf(Fix.ROOT_BLOCKNET, Fix.ROOT_DISABLE, Fix.APP_SETTINGS) else emptyList(),
+                ))
+            }
+            val badExe = root.exes.filter { (_, e) ->
+                Regex("^(/data/local/tmp|/sdcard|/storage|/data/data/|/data/user/|/data/media)").containsMatchIn(e) || e.contains("(deleted)") ||
+                    Regex("frida|gum-js|gadget|xmrig|miner", RegexOption.IGNORE_CASE).containsMatchIn(e)
+            }.map { (u, e) -> "uid $u: $e" }.distinct()
+            if (badExe.isNotEmpty()) findings.add(Finding(
+                key = "root-exe", sev = Sev.HIGH, ioc = true,
+                title = L.t("برامج شغالة من أماكن مش طبيعية (${badExe.size})", "Programs running from unusual places (${badExe.size})"),
+                why = L.t("برامج أندرويد العادية بتشتغل من مجلدات النظام. برنامج شغال من /data/local/tmp أو من الذاكرة أو ملفه اتمسح وهو شغال، ده أسلوب أدوات التجسس والتعدين وأدوات زي Frida.",
+                    "Normal Android programs run from system folders. A program running from /data/local/tmp, from storage, or whose file was deleted while running is how spyware, miners and tools like Frida operate."),
+                todo = L.t("لو مش إنت اللي مشغّله، احفظ الدليل واعمل Factory reset.", "If you did not start it, save the evidence and factory reset."),
+                evidence = badExe.take(10),
+            ))
+            if (root.natRules.isNotEmpty()) findings.add(Finding(
+                key = "root-nat", sev = Sev.HIGH, ioc = true,
+                title = L.t("فيه قواعد بتحوّل ترافيك الموبايل لمكان تاني", "Rules are redirecting the phone's traffic elsewhere"),
+                why = L.t("قواعد DNAT أو REDIRECT في iptables بتخلّي ترافيكك يعدّي على جهاز أو برنامج تاني يقدر يشوفه. ممكن تكون من VPN أو مانع إعلانات، وممكن تكون تجسس.",
+                    "DNAT or REDIRECT rules in iptables send your traffic through another program or machine that can read it. They may come from a VPN or ad blocker, or from spying."),
+                todo = L.t("لو مش عارف مين حاطها، اقفل أي VPN أو مانع إعلانات وأعد الفحص. لو فضلت، احفظ الدليل.", "If you do not know who added them, turn off any VPN or ad blocker and rescan. If they stay, save the evidence."),
+                evidence = root.natRules.take(8),
+            ))
+            if (root.selinux.equals("Permissive", true)) findings.add(Finding(
+                key = "root-selinux", sev = Sev.HIGH, ioc = false,
+                title = L.t("SELinux مقفول (Permissive)", "SELinux is off (Permissive)"),
+                why = L.t("SELinux هو اللي بيعزل التطبيقات عن بعض. لما يبقى Permissive أي تطبيق أو برنامج خبيث بيتحرك بحرية.", "SELinux keeps apps apart. In Permissive mode any app or malware moves freely."),
+                todo = L.t("ارجع لـ Enforcing، أو نزّل نسخة سوفت وير رسمية.", "Switch back to Enforcing, or install official firmware."), evidence = listOf("getenforce: ${root.selinux}"),
+            ))
+            if (root.hostsExtra.isNotEmpty()) {
+                val sensitive = root.hostsExtra.filter { Regex("bank|nbe|cib|misr|instapay|fawry|vodafone|google|facebook|whatsapp|apple|microsoft", RegexOption.IGNORE_CASE).containsMatchIn(it) && !it.trim().startsWith("0.0.0.0") && !it.trim().startsWith("127.") }
+                findings.add(Finding(
+                    key = "root-hosts", sev = if (sensitive.isNotEmpty()) Sev.HIGH else Sev.LOW, ioc = sensitive.isNotEmpty(),
+                    title = if (sensitive.isNotEmpty()) L.t("ملف hosts بيحوّل مواقع بنوك أو حسابات لعناوين تانية", "The hosts file sends bank or account sites to other addresses")
+                    else L.t("ملف hosts متعدّل (${root.hostsExtra.size} سطر)", "The hosts file is modified (${root.hostsExtra.size} lines)"),
+                    why = if (sensitive.isNotEmpty()) L.t("ده بيوديك لموقع مزيف وإنت كاتب العنوان الصح بإيدك.", "This sends you to a fake site even when you type the right address.")
+                    else L.t("غالبًا مانع إعلانات زي AdAway، وده طبيعي لو إنت مسطّبه.", "Usually an ad blocker such as AdAway, which is fine if you installed it."),
+                    todo = L.t("لو مش عارف مين عدّله، رجّعه للأصلي من الـ Root manager.", "If you do not know who changed it, restore it from your root manager."),
+                    evidence = (sensitive.ifEmpty { root.hostsExtra }).take(8),
+                ))
+            }
+            if (root.bootScripts.isNotEmpty()) findings.add(Finding(
+                key = "root-boot", sev = Sev.MED,
+                title = L.t("سكربتات بتشتغل مع تشغيل الموبايل بصلاحية Root (${root.bootScripts.size})", "Scripts that run as root at boot (${root.bootScripts.size})"),
+                why = L.t("أي سكربت هنا بيشتغل بأعلى صلاحية مع كل تشغيل. الموديولات بتحطها عادي، بس دي كمان مكان مفضّل للأبواب الخلفية.", "Anything here runs with full power at every boot. Modules put scripts here normally, but it is also a favourite spot for backdoors."),
+                todo = L.t("راجع القايمة، وامسح أي سكربت مش عارف جه منين.", "Review the list and remove any script you do not recognise."), evidence = root.bootScripts.take(12),
+            ))
+            if (root.modules.isNotEmpty()) findings.add(Finding(
+                key = "root-modules", sev = Sev.LOW,
+                title = L.t("موديولات Magisk متسطّبة (${root.modules.size})", "Magisk modules installed (${root.modules.size})"),
+                why = L.t("الموديولات بتعدّل النظام نفسه. أي موديول مش إنت اللي مسطّبه ممكن يكون باب خلفي.", "Modules change the system itself. Any module you did not install may be a backdoor."),
+                todo = L.t("افتح Magisk ← Modules وراجعها.", "Open Magisk › Modules and review them."), evidence = root.modules.map { it.replace('|', ' ') }.take(15),
+            ))
+            val tmpExec = root.tmpFiles.filter { it.length >= 10 && it.startsWith("-") && it.substring(0, 10).contains('x') }
+            if (tmpExec.isNotEmpty()) findings.add(Finding(
+                key = "root-tmp", sev = Sev.MED,
+                title = L.t("ملفات تنفيذية في /data/local/tmp (${tmpExec.size})", "Executable files in /data/local/tmp (${tmpExec.size})"),
+                why = L.t("المكان ده بتستخدمه أدوات الاختراق والتحليل لأنه بيقبل تشغيل برامج.", "Hacking and analysis tools use this folder because programs can run from it."),
+                todo = L.t("لو مش إنت اللي حاطها، احفظ الدليل وامسحها.", "If you did not put them there, save the evidence and delete them."), evidence = tmpExec.take(10),
+            ))
+            verified.add(L.t("وضع Root: اتفحص ${root.conns.size} اتصال شغال و${root.exes.size} برنامج شغال", "Root mode: ${root.conns.size} live connections and ${root.exes.size} running programs checked"))
+            if (byConn.values.flatten().none { intel.c2Ips.containsKey(it.remote) }) verified.add(L.t("مفيش اتصال شغال بأي سيرفر تحكم معروف (${intel.c2Ips.size} عنوان)", "No live connection to any known command server (${intel.c2Ips.size} addresses)"))
+        }
+
         // 9. hardening checklist
         val P = CheckState.PASS; val W = CheckState.WARN; val F = CheckState.FAIL
         checks.add(Check(L.t("قفل الشاشة", "Screen lock"), if (d.secure) P else F, if (d.secure) L.t("موجود", "Set") else L.t("مفيش", "None"), L.t("PIN أقوى من Pattern", "A PIN is stronger than a pattern"), Fix.LOCK))
@@ -402,6 +496,15 @@ object Analyzer {
             exp(L.t("سجل المكالمات", "Call log"), setOf(Manifest.permission.READ_CALL_LOG)),
             exp(L.t("جهات الاتصال", "Contacts"), setOf(Manifest.permission.READ_CONTACTS)),
         )
+
+        // root response buttons on the findings that point at an app
+        if (root != null && root.ok) {
+            for (i in findings.indices) {
+                val f = findings[i]
+                if (f.pkg != null && f.ioc && byPkg[f.pkg]?.system != true && Fix.ROOT_DISABLE !in f.fixes)
+                    findings[i] = f.copy(fixes = listOf(Fix.ROOT_STOP, Fix.ROOT_BLOCKNET, Fix.ROOT_DISABLE) + f.fixes)
+            }
+        }
 
         // score
         val sorted = findings.sortedBy { it.sev.rank }

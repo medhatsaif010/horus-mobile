@@ -23,6 +23,9 @@ object Actions {
         Fix.NETWORK -> L.t("افتح إعدادات الشبكة", "Open network settings")
         Fix.VPN -> L.t("افتح إعدادات VPN", "Open VPN settings")
         Fix.UNKNOWN_SOURCES -> L.t("افتح تسطيب التطبيقات المجهولة", "Open install unknown apps")
+        Fix.ROOT_STOP -> L.t("وقّفه دلوقتي (Root)", "Stop it now (root)")
+        Fix.ROOT_DISABLE -> L.t("عطّله (Root)", "Disable it (root)")
+        Fix.ROOT_BLOCKNET -> L.t("اقطع عنه النت (Root)", "Cut its internet (root)")
     }
 
     private fun intentFor(f: Fix, pkg: String?): List<Intent> = when (f) {
@@ -37,6 +40,7 @@ object Actions {
         Fix.NETWORK -> listOf(Intent(Settings.ACTION_WIRELESS_SETTINGS))
         Fix.VPN -> listOf(Intent(Settings.ACTION_VPN_SETTINGS))
         Fix.UNKNOWN_SOURCES -> listOf(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES))
+        Fix.ROOT_STOP, Fix.ROOT_DISABLE, Fix.ROOT_BLOCKNET -> emptyList()
     }
 
     fun open(ctx: Context, f: Fix, pkg: String? = null) {

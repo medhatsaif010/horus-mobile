@@ -29,7 +29,8 @@ enum class Sev(val weight: Int, val rank: Int) { CRIT(25, 0), HIGH(8, 1), MED(3,
 
 enum class Fix {
     APP_SETTINGS, UNINSTALL, ACCESSIBILITY, SECURITY, NOTIFICATIONS, UPDATE, LOCK,
-    DEVELOPER, NETWORK, VPN, UNKNOWN_SOURCES
+    DEVELOPER, NETWORK, VPN, UNKNOWN_SOURCES,
+    ROOT_STOP, ROOT_DISABLE, ROOT_BLOCKNET,
 }
 
 data class Finding(
@@ -126,6 +127,7 @@ data class DeviceData(
     val userCerts: List<String>,
     val prev: Snapshot?,
     val deep: DeepData?,
+    val root: RootData? = null,
 )
 
 data class Signal(val level: String, val text: String)

@@ -68,16 +68,24 @@ object DeepScan {
         val started = System.currentTimeMillis()
         val pm = ctx.packageManager
 
-        // 1. APK hashes for sideloaded and hidden apps
+        // 1. APK hashes: sideloaded, hidden and system apps (preloaded malware on cheap phones).
+        //    Hashes are cached by path + size + date, so only the first deep scan is slow.
         progress(5)
+        val cacheFile = File(ctx.filesDir, "hash-cache.json")
+        val cache = try { org.json.JSONObject(cacheFile.readText()) } catch (e: Exception) { org.json.JSONObject() }
+        val fresh = org.json.JSONObject()
         val hashes = HashMap<String, String>(); var skipped = 0
         for (a in apps) {
-            if (a.system || a.pkg == ctx.packageName || (!isSide(a) && a.launcher)) continue
+            if (a.pkg == ctx.packageName || (!a.system && !isSide(a) && a.launcher)) continue
             val path = try { pm.getApplicationInfo(a.pkg, 0).sourceDir } catch (e: Exception) { null } ?: continue
             val f = File(path)
             if (!f.canRead() || f.length() > 150L * 1024 * 1024) { skipped++; continue }
-            sha256(f)?.let { hashes[a.pkg] = it } ?: skipped++
+            val ck = path + "|" + f.length() + "|" + f.lastModified()
+            val h = cache.optString(ck, "").ifEmpty { null } ?: sha256(f)
+            if (h == null) { skipped++; continue }
+            hashes[a.pkg] = h; fresh.put(ck, h)
         }
+        try { cacheFile.writeText(fresh.toString()) } catch (e: Exception) { }
 
         // 2. apps that start on boot
         val boot = try {

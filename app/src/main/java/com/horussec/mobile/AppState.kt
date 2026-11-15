@@ -28,6 +28,11 @@ object App {
     var scanDeep by mutableStateOf(false)
     var autoHours by mutableIntStateOf(0)
     var usageAccess by mutableStateOf(false)
+    var rootDetected by mutableStateOf(false)
+    var rootOn by mutableStateOf(false)
+    var rootBusy by mutableStateOf(false)
+    var rootMsg by mutableStateOf("")
+    var rootUndo by mutableStateOf(listOf<RootScan.Undo>())
     var notifyAllowed by mutableStateOf(true)
 
     var linkText by mutableStateOf("")
@@ -52,6 +57,9 @@ object App {
         lastScanAt = Prefs.long("lastScanAt")
         lastVerdict = Prefs.str("lastVerdict")
         autoHours = AutoScan.hours()
+        rootOn = RootScan.enabled()
+        rootUndo = RootScan.undoList()
+        scope.launch { rootDetected = withContext(Dispatchers.IO) { RootScan.looksRooted(ctx) } }
         if (intel == null) scope.launch {
             intel = withContext(Dispatchers.IO) { Intel.get(ctx) }
             val age = intel?.let { Intel.ageDays(it) } ?: 99
@@ -167,6 +175,65 @@ object App {
                 updateMsg = if (e.message == "sha") L.t("الملف اللي نزل مش مطابق للنسخة الرسمية، فاترفض ومتسطّبش.", "The download did not match the official build, so it was rejected and not installed.")
                 else L.t("التنزيل موقفش صح. جرّب تاني.", "The download did not finish. Try again.")
             }
+        }
+    }
+
+    // ------------------------------------------------------------------ root mode
+    fun enableRoot() {
+        if (rootBusy) return
+        rootBusy = true; rootMsg = ""
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) { Su.granted() }
+            if (ok) { Prefs.put("rootMode", "1"); rootOn = true; rootMsg = L.t("وضع Root اتفعّل. الفحص العميق الجاي هيستخدمه.", "Root mode is on. The next deep scan will use it.") }
+            else rootMsg = L.t("صلاحية Root اترفضت أو مش موجودة. لو عندك Magisk، افتحه واسمح لـ Horus Sec من Superuser.", "Root access was refused or is not available. If you use Magisk, open it and allow Horus Sec under Superuser.")
+            rootBusy = false
+        }
+    }
+
+    fun disableRoot() { Prefs.put("rootMode", null); rootOn = false; rootMsg = "" }
+
+    /** Runs a root response action after the user confirmed it; returns through rootMsg. */
+    fun rootAction(fx: Fix, pkg: String) {
+        if (rootBusy) return
+        rootBusy = true
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                when (fx) {
+                    Fix.ROOT_STOP -> RootScan.stop(pkg)
+                    Fix.ROOT_DISABLE -> RootScan.disable(pkg)
+                    Fix.ROOT_BLOCKNET -> {
+                        val uid = try { ctx.packageManager.getApplicationInfo(pkg, 0).uid } catch (e: Exception) { -1 }
+                        uid >= 10000 && RootScan.blockNet(pkg, uid)
+                    }
+                    else -> false
+                }
+            }
+            rootUndo = RootScan.undoList()
+            rootMsg = if (ok) L.t("اتنفّذ على $pkg.", "Done for $pkg.") else L.t("متنفّذش. اتأكد إن Horus Sec لسه مسموحله بـ Root.", "It did not work. Make sure Horus Sec still has root access.")
+            rootBusy = false
+        }
+    }
+
+    fun rootUndoAction(u: RootScan.Undo) {
+        if (rootBusy) return
+        rootBusy = true
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) { RootScan.undo(u.kind, u.pkg, u.uid) }
+            rootUndo = RootScan.undoList()
+            rootMsg = if (ok) L.t("اترجع: ${u.pkg}", "Restored: ${u.pkg}") else L.t("مقدرناش نرجّعه.", "Could not restore it.")
+            rootBusy = false
+        }
+    }
+
+    fun exportEvidence(c: Context) {
+        if (rootBusy) return
+        rootBusy = true; rootMsg = L.t("بيجمع السجلات...", "Collecting logs...")
+        scope.launch {
+            val summary = result?.let { Actions.summary(it, device) } ?: ""
+            val i = withContext(Dispatchers.IO) { try { RootScan.exportEvidence(ctx, summary) } catch (e: Exception) { null } }
+            rootBusy = false
+            if (i == null) rootMsg = L.t("مقدرناش نجمع السجلات.", "Could not collect the logs.")
+            else { rootMsg = ""; try { c.startActivity(i) } catch (e: Exception) { } }
         }
     }
 }

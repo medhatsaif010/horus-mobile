@@ -161,6 +161,7 @@ object Collector {
             privateDnsActive = pdActive, privateDnsHost = pdHost, vpn = vpn, proxy = proxy, userCerts = certs,
             prev = loadSnapshot(),
             deep = if (deep) DeepScan.collect(ctx, apps, { a -> Analyzer.isSideloaded(a, ctx.packageName) }, progress) else null,
+            root = if (deep && RootScan.enabled()) { progress(8); RootScan.collect(ctx) } else null,
         )
     }
 

@@ -40,6 +40,12 @@ shot 13-notification 3
 adb shell cmd statusbar collapse
 adb shell am start -n $A --ez horus_autoscan true --ez horus_deep false
 shot 14-quick-result 12
+adb shell am start -n $A --ez horus_rootmode true --es horus_screen home
+sleep 25
+adb shell input swipe 160 560 160 80 300
+adb shell input swipe 160 560 160 80 300
+adb shell input swipe 160 560 160 80 300
+shot 16-rootcard 3
 adb shell am start -n $A --ei horus_auto 3 --ez horus_runworker true --es horus_screen home
 sleep 40
 adb shell am force-stop $P
