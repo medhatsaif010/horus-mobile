@@ -59,6 +59,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         if (App.needInstallPermission && Updater.canInstall(this)) App.needInstallPermission = false
         if (App.screen == Screen.HOME) App.refreshFromPrefs()
+        App.maybeCheckUpdate()
         App.usageAccess = DeepScan.hasUsageAccess(this)
         App.notifyAllowed = AutoScan.notificationsAllowed(this)
     }

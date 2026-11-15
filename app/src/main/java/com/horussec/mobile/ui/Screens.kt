@@ -126,7 +126,7 @@ fun HomeScreen() {
             val intel = App.intel
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    L.t("قاعدة التهديدات: ", "Threat intel: ") + (intel?.date?.ifEmpty { "—" } ?: "…"),
+                    "v" + BuildConfig.VERSION_NAME + "  ·  " + L.t("قاعدة التهديدات: ", "Threat intel: ") + (intel?.date?.ifEmpty { "—" } ?: "…"),
                     color = C.Dim, fontSize = 12.sp, modifier = Modifier.weight(1f),
                 )
                 SmallLink(L.t("عن البرنامج", "About")) { App.screen = Screen.ABOUT }

@@ -58,7 +58,7 @@ object App {
             val checked = Prefs.long("intelChecked")
             if (age >= 2 && System.currentTimeMillis() - checked > 12 * 3600_000L) updateIntel(quiet = true)
         }
-        if (System.currentTimeMillis() - Prefs.long("updateChecked") > 6 * 3600_000L) checkUpdate(quiet = true)
+        maybeCheckUpdate()
     }
 
     fun setLang(ar: Boolean) {
@@ -128,6 +128,11 @@ object App {
             }
             intelBusy = false
         }
+    }
+
+    /** Called on every app open; asks GitHub at most every 30 minutes. */
+    fun maybeCheckUpdate() {
+        if (update == null && System.currentTimeMillis() - Prefs.long("updateChecked") > 30 * 60_000L) checkUpdate(quiet = true)
     }
 
     fun checkUpdate(quiet: Boolean = false) {
