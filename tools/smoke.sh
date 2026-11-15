@@ -32,6 +32,7 @@ adb shell am start -n $A --es horus_screen about
 shot 11-about-en 3
 adb shell am start -n $A --es horus_lang ar --es horus_screen home --ez horus_fakeupdate true
 shot 12-home-update 3
+adb shell pm grant $P android.permission.POST_NOTIFICATIONS
 adb shell am start -n $A --ez horus_testnotify true
 sleep 3
 adb shell cmd statusbar expand-notifications
@@ -39,6 +40,15 @@ shot 13-notification 3
 adb shell cmd statusbar collapse
 adb shell am start -n $A --ez horus_autoscan true --ez horus_deep false
 shot 14-quick-result 12
+adb shell am start -n $A --ei horus_auto 3 --ez horus_runworker true --es horus_screen home
+sleep 40
+adb shell am force-stop $P
+adb shell am start -n $A
+sleep 6
+adb shell input swipe 160 560 160 80 300
+adb shell input swipe 160 560 160 80 300
+shot 15-autoscan 3
+adb shell dumpsys jobscheduler | grep -A3 "horussec" | head -20 > shots/jobs.txt
 adb shell dumpsys package $P | grep -E "versionName|versionCode|targetSdk" > shots/package.txt
 adb logcat -d -b crash | grep -iE "horussec|FATAL EXCEPTION" -A20 > shots/crash.txt || true
 adb logcat -d | grep -iE "horussec|AndroidRuntime|FATAL" > shots/logcat.txt || true

@@ -74,6 +74,8 @@ class MainActivity : ComponentActivity() {
             i.getStringExtra("horus_lang")?.let { App.setLang(it == "ar") }
             when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME }
             if (i.getBooleanExtra("horus_autoscan", false)) App.startScan(deep = i.getBooleanExtra("horus_deep", true))
+            if (i.hasExtra("horus_auto")) App.setAuto(i.getIntExtra("horus_auto", 0))
+            if (i.getBooleanExtra("horus_runworker", false)) androidx.work.WorkManager.getInstance(this).enqueue(androidx.work.OneTimeWorkRequestBuilder<ScanWorker>().build())
             if (i.getBooleanExtra("horus_testnotify", false)) AutoScan.notify(this, "Horus Sec: علامات اختراق على الموبايل", "تجربة: تنبيه الفحص التلقائي")
             if (i.getBooleanExtra("horus_fakeupdate", false)) App.update = UpdateInfo(BuildConfig.VERSION_CODE + 1, "1.0.${BuildConfig.VERSION_CODE + 1}", "https://github.com/medhatsaif010/horus-mobile/releases/download/apk/HorusSec-Mobile.apk", "0".repeat(64), "تجربة: شاشة التحديث")
         }
