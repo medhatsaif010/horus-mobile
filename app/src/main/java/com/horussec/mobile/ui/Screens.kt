@@ -513,11 +513,15 @@ fun AutoScanCard() {
 
 @Composable
 fun RootCard() {
-    if (!App.rootDetected && !App.rootOn) return
     val ctx = LocalContext.current
     AccentPanel(if (App.rootOn) C.Gold else C.Border) {
         Text(L.t("وضع Root (للخبراء)", "Root mode (experts)"), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        if (!App.rootOn) {
+        if (!App.rootDetected && !App.rootOn) {
+            Text(L.t("الموبايل ده مش عليه Root، فالوضع ده مقفول. وده الأفضل لأمانك.", "This phone is not rooted, so this mode is off. That is safer for you."), color = C.Green, fontSize = 13.sp)
+            Text(L.t("على الموبايلات اللي عليها Root (Magisk أو KernelSU)، الوضع ده بيكشف التطبيقات المتصلة دلوقتي بسيرفرات تحكم، والبرامج المخفية، وتحويل الترافيك، وبيقدر يوقّف أو يعطّل تطبيق خطر بعد موافقتك. متعملش Root علشان تجرّبه: ده بيضعّف حماية الموبايل.",
+                "On rooted phones (Magisk or KernelSU), this mode spots apps connected right now to command servers, hidden programs and traffic redirection, and can stop or disable a dangerous app after you confirm. Do not root your phone to try it: rooting weakens its protection."), color = C.Text2, fontSize = 13.sp)
+            Secondary(L.t("الحالة: مقفول", "Status: off"), { }, Modifier.fillMaxWidth(), enabled = false)
+        } else if (!App.rootOn) {
             Text(L.t("الموبايل ده عليه Root. لو سمحت لـ Horus Sec بالصلاحية، الفحص العميق هيشوف الاتصالات الشغالة لكل تطبيق ويقارنها بسيرفرات التحكم المعروفة، والبرامج الشغالة، وموديولات Magisk، وسكربتات الإقلاع، وملف hosts، وتحويل الترافيك. وهيقدر يوقّف أو يعطّل أو يقطع النت عن تطبيق خطر بعد موافقتك.",
                 "This phone is rooted. If you grant Horus Sec root, the deep scan checks every app's live connections against known command servers, running programs, Magisk modules, boot scripts, the hosts file and traffic redirection. It can also stop, disable or cut the internet of a dangerous app after you confirm."), color = C.Text2, fontSize = 13.sp)
             Text(L.t("الـ Root نفسه بيضعّف حماية أندرويد. Horus Sec بيستخدمه للقراءة، ومش بيغيّر حاجة غير بموافقتك على كل خطوة.", "Root itself weakens Android's protection. Horus Sec uses it to read, and changes nothing without your consent for each step."), color = C.Dim, fontSize = 12.sp)
