@@ -320,7 +320,7 @@ object Analyzer {
         var lows = 0; var penalty = 0
         for (f in sorted) { if (f.sev == Sev.LOW) lows += 1 else penalty += f.sev.weight }
         penalty += minOf(lows, 6)
-        penalty += minOf(checks.sumOf { when (it.state) { CheckState.FAIL -> 3; CheckState.WARN -> 1; else -> 0 } }, 8)
+        penalty += minOf(checks.map { when (it.state) { CheckState.FAIL -> 3; CheckState.WARN -> 1; else -> 0 } }.sum(), 8)
         var score = (100 - penalty).coerceIn(0, 100)
         val compromised = sorted.any { it.sev == Sev.CRIT && it.ioc }
         if (compromised) score = minOf(score, 20)
