@@ -93,7 +93,7 @@ fun verdictSub(v: String?, iocs: Int = 0): String = when (v) {
     else -> L.t("مفيش علامات اختراق", "No signs of compromise")
 }
 
-fun scoreLine(score: Int): String = L.t("رقم الأمان $score / 100", "Security score $score / 100")
+fun scoreLine(score: Int): String = L.t("رقم الأمان $score / 100", "Score $score / 100")
 
 fun ringText(deep: Boolean, at: Long, apps: Int): String {
     val d = SimpleDateFormat("dd MMM yyyy", Locale.US).format(Date(if (at > 0) at else System.currentTimeMillis())).uppercase(Locale.US)
