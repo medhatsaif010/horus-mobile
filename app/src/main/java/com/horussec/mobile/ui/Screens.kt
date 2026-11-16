@@ -456,7 +456,7 @@ fun AboutScreen() {
     val intel = App.intel
     val ctx = LocalContext.current
     Column(Modifier.fillMaxSize()) {
-        TopBar(L.t("عن البرنامج", "About")) { App.screen = Screen.HOME }
+        TopBar(L.t("عن البرنامج", "About"), { App.screen = Screen.HOME })
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 HorusMark(Modifier.size(56.dp))

@@ -50,7 +50,7 @@ object LegalPage { var page by androidx.compose.runtime.mutableIntStateOf(0) }
 fun LegalScreen() {
     var tab by remember { mutableIntStateOf(LegalPage.page) }
     Column(Modifier.fillMaxSize()) {
-        TopBar(L.t("الشروط والخصوصية", "Terms and privacy")) { App.screen = Screen.ABOUT }
+        TopBar(L.t("الشروط والخصوصية", "Terms and privacy"), { App.screen = Screen.ABOUT })
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(L.t("شروط الاستخدام", "Terms of use"), L.t("الخصوصية", "Privacy"), L.t("التراخيص", "Licences")).forEachIndexed { i, t ->
                 val sel = tab == i
