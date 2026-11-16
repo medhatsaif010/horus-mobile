@@ -55,16 +55,16 @@ fun LegalScreen() {
             listOf(L.t("شروط الاستخدام", "Terms of use"), L.t("الخصوصية", "Privacy"), L.t("التراخيص", "Licences")).forEachIndexed { i, t ->
                 val sel = tab == i
                 Box(
-                    Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).background(if (sel) C.Gold else C.NavyDark).clickable { tab = i }.padding(horizontal = 6.dp, vertical = 8.dp),
+                    Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(if (sel) C.Gold else C.Bar).clickable { tab = i }.padding(horizontal = 6.dp, vertical = 8.dp),
                     contentAlignment = Alignment.Center,
-                ) { Text(t, color = if (sel) C.Navy else Color.White, fontSize = 13.sp, maxLines = 1, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal) }
+                ) { Text(t, color = if (sel) C.OnGold else C.Text, fontSize = 13.sp, maxLines = 1, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal) }
             }
         }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             val sections = when (tab) { 0 -> terms(); 1 -> privacy(); else -> licences() }
             sections.forEach { (h, body) ->
                 Panel {
-                    Text(h, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(h, color = C.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     Text(body, color = C.Text2, fontSize = 13.sp)
                 }
             }
@@ -117,5 +117,6 @@ private fun licences(): List<Pair<String, String>> = listOf(
     "CISA Known Exploited Vulnerabilities" to "U.S. Cybersecurity and Infrastructure Security Agency, public domain. https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
     "RDAP" to "Domain registration data via rdap.org.",
     "Android Jetpack, Jetpack Compose, AndroidX WorkManager" to "Copyright The Android Open Source Project. Licensed under the Apache License, Version 2.0. https://www.apache.org/licenses/LICENSE-2.0",
+    "Readex Pro" to "Copyright 2018 The Readex Pro Project Authors. Licensed under the SIL Open Font License, Version 1.1. https://openfontlicense.org",
     "Kotlin, kotlinx.coroutines" to "Copyright JetBrains s.r.o. and contributors. Licensed under the Apache License, Version 2.0.",
 )

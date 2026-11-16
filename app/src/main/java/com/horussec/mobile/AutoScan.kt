@@ -109,6 +109,7 @@ class ScanWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             Collector.saveSnapshot(d, r)
             Prefs.put("lastScore", r.score.toString()); Prefs.putLong("lastScanAt", r.atMillis)
             Prefs.put("lastVerdict", r.verdict); Prefs.putLong("lastAutoScan", r.atMillis)
+            History.add(r, auto = true)
             AutoScan.alertFor(d, r)?.let { (t, b) -> AutoScan.notify(c, t, b) }
             Result.success()
         } catch (e: Exception) { Result.retry() }

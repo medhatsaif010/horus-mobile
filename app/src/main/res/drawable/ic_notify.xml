@@ -1,23 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Horus Sec mark, small and heavy, for the status bar -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
-    android:viewportWidth="220"
-    android:viewportHeight="220">
-    <group android:translateY="35">
-        <path
-            android:pathData="M18,74 C62,30 150,26 202,66 C150,104 64,110 18,74 Z"
-            android:strokeColor="#FFFFFFFF"
-            android:strokeWidth="16"
-            android:strokeLineJoin="round"
-            android:fillColor="#00000000" />
-        <path
-            android:pathData="M86,70 a24,24 0 1,0 48,0 a24,24 0 1,0 -48,0"
-            android:fillColor="#FFFFFFFF" />
-        <path
-            android:pathData="M96,100 L82,142"
-            android:strokeColor="#FFFFFFFF"
-            android:strokeWidth="16"
-            android:strokeLineCap="round" />
-    </group>
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="100" android:viewportHeight="100">
+    <path android:pathData="M50,6 L87,19 V47 C87,71 71,87 50,95 C29,87 13,71 13,47 V19 Z"
+        android:strokeColor="#FFFFFFFF" android:strokeWidth="9" android:strokeLineJoin="round" android:fillColor="#00000000" />
+    <path android:pathData="M25,48 Q50,30 75,48 Q50,64 25,48 Z"
+        android:strokeColor="#FFFFFFFF" android:strokeWidth="7" android:strokeLineJoin="round" android:fillColor="#00000000" />
+    <path android:pathData="M41.5,48 a8.5,8.5 0 1,0 17,0 a8.5,8.5 0 1,0 -17,0" android:fillColor="#FFFFFFFF" />
+    <path android:pathData="M45,60 L40,78" android:strokeColor="#FFFFFFFF" android:strokeWidth="7" android:strokeLineCap="round" />
 </vector>

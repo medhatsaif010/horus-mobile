@@ -109,6 +109,7 @@ object App {
             lastScore = r.score; lastScanAt = r.atMillis
             Prefs.put("lastScore", r.score.toString()); Prefs.putLong("lastScanAt", r.atMillis)
             lastVerdict = r.verdict; Prefs.put("lastVerdict", r.verdict)
+            History.add(r, auto = false)
             screen = Screen.RESULT
         }
     }

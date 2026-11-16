@@ -31,6 +31,17 @@ import com.horussec.mobile.ui.LinkScreen
 import com.horussec.mobile.ui.ResultScreen
 import com.horussec.mobile.ui.ScanningScreen
 
+private val horusType = androidx.compose.material3.Typography().let { t ->
+    fun f(s: androidx.compose.ui.text.TextStyle) = s.copy(fontFamily = com.horussec.mobile.ui.Readex)
+    t.copy(
+        displayLarge = f(t.displayLarge), displayMedium = f(t.displayMedium), displaySmall = f(t.displaySmall),
+        headlineLarge = f(t.headlineLarge), headlineMedium = f(t.headlineMedium), headlineSmall = f(t.headlineSmall),
+        titleLarge = f(t.titleLarge), titleMedium = f(t.titleMedium), titleSmall = f(t.titleSmall),
+        bodyLarge = f(t.bodyLarge), bodyMedium = f(t.bodyMedium), bodySmall = f(t.bodySmall),
+        labelLarge = f(t.labelLarge), labelMedium = f(t.labelMedium), labelSmall = f(t.labelSmall),
+    )
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
@@ -41,9 +52,9 @@ class MainActivity : ComponentActivity() {
         App.init(this)
         handle(intent)
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(primary = C.Gold, onPrimary = C.Navy, background = C.Navy, surface = C.Card, onSurface = Color.White, onBackground = Color.White)) {
+            MaterialTheme(colorScheme = darkColorScheme(primary = C.Gold, onPrimary = C.OnGold, background = C.Bg, surface = C.Surface, onSurface = C.Text, onBackground = C.Text), typography = horusType) {
                 CompositionLocalProvider(LocalLayoutDirection provides if (L.ar) LayoutDirection.Rtl else LayoutDirection.Ltr) {
-                    Surface(Modifier.fillMaxSize(), color = C.Navy, contentColor = Color.White) {
+                    Surface(Modifier.fillMaxSize(), color = C.Bg, contentColor = C.Text) {
                         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                             BackHandler(enabled = App.screen != Screen.HOME && App.screen != Screen.SCANNING) { App.screen = if (App.screen == Screen.LEGAL) Screen.ABOUT else Screen.HOME }
                             when (App.screen) {
