@@ -32,7 +32,7 @@ import com.horussec.mobile.ui.ResultScreen
 import com.horussec.mobile.ui.ScanningScreen
 
 private val horusType = androidx.compose.material3.Typography().let { t ->
-    fun f(s: androidx.compose.ui.text.TextStyle) = s.copy(fontFamily = com.horussec.mobile.ui.Readex)
+    fun f(s: androidx.compose.ui.text.TextStyle) = s.copy(fontFamily = com.horussec.mobile.ui.Readex, lineHeight = androidx.compose.ui.unit.TextUnit(1.55f, androidx.compose.ui.unit.TextUnitType.Em))
     t.copy(
         displayLarge = f(t.displayLarge), displayMedium = f(t.displayMedium), displaySmall = f(t.displaySmall),
         headlineLarge = f(t.headlineLarge), headlineMedium = f(t.headlineMedium), headlineSmall = f(t.headlineSmall),
@@ -52,16 +52,27 @@ class MainActivity : ComponentActivity() {
         App.init(this)
         handle(intent)
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(primary = C.Gold, onPrimary = C.OnGold, background = C.Bg, surface = C.Surface, onSurface = C.Text, onBackground = C.Text), typography = horusType) {
+            val sysDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val light = when (App.theme) { "light" -> true; "dark" -> false; else -> !sysDark }
+            if (C.light != light) C.light = light
+            androidx.compose.runtime.LaunchedEffect(light) {
+                val t = android.graphics.Color.TRANSPARENT
+                enableEdgeToEdge(
+                    statusBarStyle = if (light) SystemBarStyle.light(t, t) else SystemBarStyle.dark(t),
+                    navigationBarStyle = if (light) SystemBarStyle.light(t, t) else SystemBarStyle.dark(t),
+                )
+            }
+            MaterialTheme(colorScheme = (if (light) androidx.compose.material3.lightColorScheme(primary = C.Gold, onPrimary = C.OnGold, background = C.Bg, surface = C.Surface, onSurface = C.Text, onBackground = C.Text) else darkColorScheme(primary = C.Gold, onPrimary = C.OnGold, background = C.Bg, surface = C.Surface, onSurface = C.Text, onBackground = C.Text)), typography = horusType) {
                 CompositionLocalProvider(LocalLayoutDirection provides if (L.ar) LayoutDirection.Rtl else LayoutDirection.Ltr) {
                     Surface(Modifier.fillMaxSize(), color = C.Bg, contentColor = C.Text) {
                         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                            BackHandler(enabled = App.screen != Screen.HOME && App.screen != Screen.SCANNING) { App.screen = if (App.screen == Screen.LEGAL) Screen.ABOUT else Screen.HOME }
+                            BackHandler(enabled = App.screen != Screen.HOME && App.screen != Screen.SCANNING) { App.screen = when (App.screen) { Screen.LEGAL -> Screen.ABOUT; Screen.ABOUT -> Screen.SETTINGS; else -> Screen.HOME } }
                             when (App.screen) {
                                 Screen.HOME -> HomeScreen()
                                 Screen.SCANNING -> ScanningScreen()
                                 Screen.RESULT -> ResultScreen()
                                 Screen.LINK -> LinkScreen()
+                                Screen.SETTINGS -> com.horussec.mobile.ui.SettingsScreen()
                                 Screen.ABOUT -> AboutScreen()
                                 Screen.LEGAL -> com.horussec.mobile.ui.LegalScreen()
                             }
@@ -90,7 +101,11 @@ class MainActivity : ComponentActivity() {
         if (i != null && BuildConfig.DEBUG) {
             // test hooks used by the automated smoke test (debug builds only)
             i.getStringExtra("horus_lang")?.let { App.setLang(it == "ar") }
-            when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME; "legal" -> App.screen = Screen.LEGAL }
+            i.getStringExtra("horus_theme")?.let { App.setTheme(it) }
+            when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME; "legal" -> App.screen = Screen.LEGAL; "settings" -> App.screen = Screen.SETTINGS; "link" -> App.screen = Screen.LINK }
+            if (i.getBooleanExtra("horus_widgetshot", false)) try {
+                java.io.FileOutputStream(java.io.File(cacheDir, "widget.png")).use { SealWidget.bitmap(this, 420).compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            } catch (e: Exception) { }
             if (i.getBooleanExtra("horus_autoscan", false)) App.startScan(deep = i.getBooleanExtra("horus_deep", true))
             if (i.getBooleanExtra("horus_rootmode", false)) { App.rootDetected = true; App.enableRoot() }
             if (i.hasExtra("horus_auto")) App.setAuto(i.getIntExtra("horus_auto", 0))

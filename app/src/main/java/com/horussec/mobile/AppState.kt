@@ -16,7 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class Screen { HOME, SCANNING, RESULT, LINK, ABOUT, LEGAL }
+enum class Screen { HOME, SCANNING, RESULT, LINK, SETTINGS, ABOUT, LEGAL }
 
 /** App-wide state. Lives as long as the process, so a rotation or theme change keeps the scan. */
 object App {
@@ -54,10 +54,20 @@ object App {
     var updateMsg by mutableStateOf("")
     var needInstallPermission by mutableStateOf(false)
 
+    /** "system", "dark" or "light" */
+    var theme by mutableStateOf("system")
+    /** true right after a scan finishes, so the result screen plays the stamp once */
+    var justScanned by mutableStateOf(false)
+    /** protection score of the scan before the one on screen */
+    var scoreBefore by mutableStateOf<Int?>(null)
+
+    fun setTheme(t: String) { theme = t; Prefs.put("theme", t) }
+
     fun init(c: Context) {
         ctx = c.applicationContext
         Prefs.init(ctx)
         L.ar = (Prefs.str("lang") ?: "ar") == "ar"
+        theme = Prefs.str("theme") ?: "system"
         lastScore = Prefs.str("lastScore")?.toIntOrNull()
         lastScanAt = Prefs.long("lastScanAt")
         lastVerdict = Prefs.str("lastVerdict")
@@ -79,6 +89,7 @@ object App {
         Prefs.put("lang", if (ar) "ar" else "en")
         val d = device; val i = intel
         if (d != null && i != null) result = Analyzer.analyze(d, i)
+        scope.launch(Dispatchers.IO) { SealWidget.update(ctx) }
     }
 
     fun refreshFromPrefs() {
@@ -109,7 +120,10 @@ object App {
             lastScore = r.score; lastScanAt = r.atMillis
             Prefs.put("lastScore", r.score.toString()); Prefs.putLong("lastScanAt", r.atMillis)
             lastVerdict = r.verdict; Prefs.put("lastVerdict", r.verdict)
+            scoreBefore = History.list().firstOrNull()?.score
             History.add(r, auto = false)
+            withContext(Dispatchers.IO) { SealWidget.update(ctx) }
+            justScanned = true
             screen = Screen.RESULT
         }
     }

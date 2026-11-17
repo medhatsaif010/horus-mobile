@@ -52,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -93,7 +94,46 @@ fun verdictSub(v: String?, iocs: Int = 0): String = when (v) {
     else -> L.t("مفيش علامات اختراق", "No signs of compromise")
 }
 
-fun scoreLine(score: Int): String = L.t("رقم الأمان $score / 100", "Score $score / 100")
+fun scoreLine(score: Int): String = L.t("الحماية $score من 100", "Protection $score of 100")
+
+/** Roughly where the protection score lands if the user does the first three things on the list. */
+fun potential(r: com.horussec.mobile.ScanResult): Pair<Int, Int>? {
+    if (r.verdict == "compromised") return null
+    val gains = (r.findings.filter { it.fixes.isNotEmpty() }.map { it.sev.weight } +
+        r.checks.filter { it.fix != null }.map { when (it.state) { CheckState.FAIL -> 3; CheckState.WARN -> 1; else -> 0 } })
+        .filter { it > 0 }.sortedDescending()
+    if (gains.isEmpty()) return null
+    val n = minOf(3, gains.size)
+    val to = minOf(100, r.score + gains.take(n).sum())
+    return if (to > r.score) n to to else null
+}
+
+fun ageText(days: Int): String = when {
+    days < 1 -> L.t("اتعمل النهارده", "created today")
+    days < 31 -> L.t("اتعمل من $days يوم", "created $days days ago")
+    days < 365 -> L.t("عمره ${days / 30} شهر", "${days / 30} months old")
+    else -> L.t("عمره ${days / 365} سنة", "${days / 365} years old")
+}
+
+/** A tab screen: content plus the bottom bar. */
+@Composable
+fun TabScreen(tab: Tab, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f).fillMaxWidth()) { content() }
+        BottomBar(tab) { t -> App.screen = when (t) { Tab.SECURITY -> Screen.HOME; Tab.LINKS -> Screen.LINK; Tab.SETTINGS -> Screen.SETTINGS } }
+    }
+}
+
+@Composable
+fun ProtectionLine(score: Int, r: com.horussec.mobile.ScanResult?, centered: Boolean = true) {
+    val align = if (centered) TextAlign.Center else TextAlign.Start
+    Text(scoreLine(score), color = scoreColor(score), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, textAlign = align, modifier = Modifier.fillMaxWidth())
+    val p = r?.let { potential(it) }
+    if (p != null) Text(
+        if (p.first == 1) L.t("لو عملت أول حاجة في القايمة توصل لحوالي ${p.second}", "Do the first thing on the list to reach about ${p.second}")
+        else L.t("لو عملت أول ${p.first} حاجات في القايمة توصل لحوالي ${p.second}", "Do the first ${p.first} things on the list to reach about ${p.second}"),
+        color = C.Muted, fontSize = 13.sp, textAlign = align, modifier = Modifier.fillMaxWidth())
+}
 
 fun ringText(deep: Boolean, at: Long, apps: Int): String {
     val d = SimpleDateFormat("dd MMM yyyy", Locale.US).format(Date(if (at > 0) at else System.currentTimeMillis())).uppercase(Locale.US)
@@ -122,7 +162,7 @@ private fun Centered(content: @Composable () -> Unit) {
 
 // ------------------------------------------------------------------ HOME
 @Composable
-fun HomeScreen() {
+fun HomeScreen() = TabScreen(Tab.SECURITY) {
     val history = remember(App.lastScanAt) { History.list() }
     Column(Modifier.fillMaxSize()) {
         TopBar(null, null)
@@ -138,15 +178,15 @@ fun HomeScreen() {
                     Seal(
                         verdictWord(v), verdictColor(v ?: "clean"),
                         ringText(h?.deep ?: App.result?.deep ?: true, App.lastScanAt, h?.apps ?: App.result?.appCount ?: 0),
-                        sub = verdictSub(v, App.result?.iocCount ?: 0), line = scoreLine(last),
+                        sub = verdictSub(v, App.result?.iocCount ?: 0),
                     )
                 } else {
-                    Seal(
-                        L.t("حورس", "Horus"), C.Gold, "HORUS SEC · MOBILE · V" + BuildConfig.VERSION_NAME + " · ",
-                        sub = L.t("موبايلك آمن؟ اعمل أول فحص", "Is your phone safe? Run a first scan"),
-                    )
+                    Seal(L.t("حورس", "Horus"), C.Gold, "HORUS SEC · MOBILE · V" + BuildConfig.VERSION_NAME + " · ", sub = L.t("اعمل أول فحص", "Run a first scan"))
                 }
             }
+            if (last != null) ProtectionLine(last, App.result)
+            else Text(L.t("فحص في أقل من دقيقة: برامج التجسس، تطبيقات البنوك المزيفة، الصلاحيات الخطيرة والإعدادات.",
+                "Under a minute: stalkerware, fake banking apps, risky permissions and settings."), color = C.Text2, fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             UpdateBanner()
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 Primary(L.t("فحص عميق", "Deep scan"), { App.startScan(deep = true) }, Modifier.weight(1.2f))
@@ -154,14 +194,10 @@ fun HomeScreen() {
             }
             if (App.result != null) ActionText(L.t("اعرض نتيجة آخر فحص", "Show the last result")) { App.screen = Screen.RESULT }
 
-            Column {
+            if (history.isNotEmpty()) Column {
                 SectionTitle(L.t("آخر الفحوصات", "Recent scans"))
-                if (history.isEmpty()) {
-                    Text(L.t("لسه مفيش فحوصات. الفحص العميق بياخد أقل من دقيقة.", "No scans yet. A deep scan takes under a minute."), color = C.Muted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 8.dp))
-                    Hairline()
-                }
                 history.take(5).forEach { e ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         val kind = when { e.auto -> L.t("تلقائي", "Automatic"); e.deep -> L.t("عميق", "Deep"); else -> L.t("سريع", "Quick") }
                         Text(dayLabel(e.at) + "  ·  " + kind, color = C.Text2, fontSize = 14.sp, modifier = Modifier.weight(1f))
                         Text(e.score.toString(), color = if (e.verdict == "compromised") C.Danger else scoreColor(e.score), fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -169,30 +205,16 @@ fun HomeScreen() {
                     Hairline()
                 }
             }
-
-            Column {
-                SectionTitle(L.t("جالك لينك؟", "Got a link?"))
-                Text(L.t("قبل ما تفتح لينك من واتساب أو رسالة، افحصه هنا. أو من أي تطبيق: مشاركة ثم Horus Sec.",
-                    "Before opening a link from WhatsApp or a message, check it here. Or from any app: Share, then Horus Sec."), color = C.Text2, fontSize = 14.sp)
-                ActionText(L.t("افحص لينك", "Check a link")) { App.linkResult = null; App.screen = Screen.LINK }
-                Hairline()
-            }
-
-            AutoScanCard()
-            RootCard()
-            Text(L.t("Horus Sec مش بيمسح ولا بيغيّر حاجة لوحده، ومش بيقرا رسايلك ولا صورك، ومش بيبعت بيانات الموبايل لأي سيرفر. كل تصليح إنت اللي بتعمله بزرار بيفتحلك الإعداد الصح.",
-                "Horus Sec never removes or changes anything on its own, never reads your messages or photos, and never sends phone data to any server. Every fix is yours, through a button that opens the right setting."),
-                color = C.Muted, fontSize = 13.sp)
-            val intel = App.intel
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    "Horus Sec  ·  " + L.t("مدحت سيف", "Medhat Seif") + "\nv" + BuildConfig.VERSION_NAME + "  ·  " + L.t("قاعدة التهديدات: ", "Threat intel: ") + (intel?.date?.ifEmpty { "—" } ?: "…"),
-                    color = C.Dim, fontSize = 12.sp, modifier = Modifier.weight(1f),
-                )
-                SmallLink(L.t("عن البرنامج", "About")) { App.screen = Screen.ABOUT }
-            }
+            ActionText(
+                if (App.autoHours > 0) L.t("الفحص التلقائي: ", "Automatic scan: ") + autoLabel(App.autoHours) else L.t("شغّل الفحص التلقائي", "Turn on automatic scans"),
+                if (App.autoHours > 0) C.Muted else C.Gold,
+            ) { App.screen = Screen.SETTINGS }
         }
     }
+}
+
+fun autoLabel(h: Int): String = when (h) {
+    0 -> L.t("مقفول", "Off"); 12 -> L.t("كل 12 ساعة", "Every 12 h"); 24 -> L.t("كل يوم", "Daily"); else -> L.t("كل $h ساعات", "Every $h h")
 }
 
 fun gradeOf(v: Int): String = when { v >= 85 -> L.t("ممتاز", "Excellent"); v >= 70 -> L.t("كويس", "Good"); v >= 50 -> L.t("محتاج شغل", "Needs work"); else -> L.t("ضعيف", "Weak") }
@@ -251,14 +273,32 @@ fun ResultScreen() {
         }
         LazyColumn(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
             item {
+                val stamp0 = remember { androidx.compose.animation.core.Animatable(if (App.justScanned) 0f else 1f) }
+                val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+                androidx.compose.runtime.LaunchedEffect(r.atMillis) {
+                    if (App.justScanned) {
+                        App.justScanned = false
+                        stamp0.animateTo(1f, androidx.compose.animation.core.tween(260, easing = androidx.compose.animation.core.FastOutLinearInEasing))
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    }
+                }
+                val v = stamp0.value
                 Centered {
                     Seal(verdictWord(r.verdict), verdictColor(r.verdict), ringText(r.deep, r.atMillis, r.appCount),
-                        sub = verdictSub(r.verdict, r.findings.count { it.ioc }), line = scoreLine(r.score))
+                        modifier = Modifier.graphicsLayer { val sc = 1.5f - 0.5f * v; scaleX = sc; scaleY = sc; alpha = v; rotationZ = -8f * (1f - v) },
+                        sub = verdictSub(r.verdict, r.findings.count { it.ioc }))
                 }
-                Text(r.headline, color = C.Text2, fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                ProtectionLine(r.score, r)
+                val before = App.scoreBefore
+                if (before != null && before != r.score) Text(
+                    if (r.score > before) L.t("الحماية زادت من $before لـ ${r.score}", "Protection went up from $before to ${r.score}")
+                    else L.t("الحماية نزلت من $before لـ ${r.score}", "Protection went down from $before to ${r.score}"),
+                    color = if (r.score > before) C.Gold else C.Warn, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
                 Text((if (r.deep) L.t("فحص عميق", "Deep scan") else L.t("فحص سريع: الفحص العميق بيدوّر أكتر", "Quick scan: a deep scan looks further")) + "  ·  " + stamp.format(Date(r.atMillis)),
-                    color = C.Dim, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 10.dp))
-                Secondary(if (r.deep) L.t("افحص تاني", "Scan again") else L.t("اعمل فحص عميق", "Run a deep scan"), { App.startScan(deep = true) }, Modifier.fillMaxWidth())
+                    color = C.Dim, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 10.dp))
+                if (r.deep) Secondary(L.t("افحص تاني", "Scan again"), { App.startScan(deep = true) }, Modifier.fillMaxWidth())
+                else Primary(L.t("اعمل فحص عميق", "Run a deep scan"), { App.startScan(deep = true) })
             }
             if (r.changes.isNotEmpty()) {
                 item { SectionTitle(L.t("اتغيّر من آخر فحص", "Changed since last scan")) }
@@ -273,7 +313,19 @@ fun ResultScreen() {
                 }
             } }
             item { SectionTitle(L.t("إعدادات الأمان", "Security settings")) }
-            items(r.checks) { CheckRow(it) }
+            items(r.checks.filter { it.state != CheckState.PASS }) { CheckRow(it) }
+            item {
+                val ok = r.checks.filter { it.state == CheckState.PASS }
+                var showOk by remember { mutableStateOf(false) }
+                if (ok.isNotEmpty()) {
+                    Row(Modifier.fillMaxWidth().clickable { showOk = !showOk }.padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(L.t("${ok.size} إعدادات تمام", "${ok.size} settings are fine"), color = C.Safe, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Text(if (showOk) L.t("اخفي", "Hide") else L.t("اعرضها", "Show"), color = C.Muted, fontSize = 13.sp)
+                    }
+                    Hairline()
+                    if (showOk) ok.forEach { CheckRow(it) }
+                }
+            }
             item { SectionTitle(L.t("مين يقدر يسمعك ويشوفك", "Who can hear and see you")) }
             item {
                 Text(L.t("التطبيقات اللي إنت مسطّبها ومعاها الصلاحيات دي دلوقتي:", "Apps you installed that hold these permissions now:"), color = C.Muted, fontSize = 13.sp)
@@ -367,7 +419,7 @@ fun FindingRow(n: Int, f: Finding, onFix: (Fix) -> Unit) {
                 }
             }
             if (f.fixes.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                f.fixes.forEach { fx -> ActionText(Actions.label(fx), col) { onFix(fx) } }
+                f.fixes.forEach { fx -> ActionText(Actions.label(fx)) { onFix(fx) } }
             }
         }
     }
@@ -382,7 +434,7 @@ fun CheckRow(c: Check) {
             Text(c.name, color = C.Text, fontSize = 15.sp)
             Text(c.detail + if (c.hint.isNotEmpty() && c.state != CheckState.PASS) "  ·  ${c.hint}" else "", color = C.Muted, fontSize = 12.sp)
             val fx = c.fix
-            if (fx != null && c.state != CheckState.PASS) ActionText(L.t("افتح الإعداد", "Open the setting"), checkColor(c.state)) { Actions.open(ctx, fx) }
+            if (fx != null && c.state != CheckState.PASS) ActionText(L.t("افتح الإعداد", "Open the setting")) { Actions.open(ctx, fx) }
         }
         Spacer(Modifier.width(10.dp))
         Text(when (c.state) { CheckState.PASS -> L.t("تمام", "OK"); CheckState.WARN -> L.t("راجع", "Check"); CheckState.FAIL -> L.t("خطر", "Risk") },
@@ -393,11 +445,11 @@ fun CheckRow(c: Check) {
 
 // ------------------------------------------------------------------ LINK
 @Composable
-fun LinkScreen() {
+fun LinkScreen() = TabScreen(Tab.LINKS) {
     var text by remember(App.linkText) { mutableStateOf(App.linkText) }
     val r = App.linkResult
     Column(Modifier.fillMaxSize()) {
-        TopBar(L.t("افحص لينك", "Check a link"), { App.screen = Screen.HOME })
+        TopBar(L.t("افحص لينك", "Check a link"), null)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(L.t("الزق اللينك اللي جالك. Horus Sec مش بيفتح الصفحة: بيشوف رايحة فين، ومين صاحبها، وعمرها قد إيه.",
                 "Paste the link you received. Horus Sec does not open the page: it checks where it leads, who it pretends to be, and how old it is."), color = C.Text2, fontSize = 14.sp)
@@ -418,7 +470,7 @@ fun LinkScreen() {
                 if (!r.ok) Text(L.t("ده مش لينك صحيح. الزق اللينك كامل زي ما جالك.", "That is not a valid link. Paste the whole link as you received it."), color = C.Danger, fontSize = 14.sp)
                 else {
                     val vc = when (r.verdict) { "danger" -> C.Danger; "suspicious" -> C.Warn; else -> C.Safe }
-                    val word = when (r.verdict) { "danger" -> L.t("خطر", "Danger"); "suspicious" -> L.t("مشبوه", "Suspect"); else -> L.t("عادي", "Clear") }
+                    val word = when (r.verdict) { "danger" -> L.t("خطر", "Danger"); "suspicious" -> L.t("مشبوه", "Suspect"); else -> L.t("سليم", "Clean") }
                     val sub = when (r.verdict) {
                         "danger" -> L.t("متفتحش اللينك ده", "Do not open this link")
                         "suspicious" -> L.t("متكتبش فيه أي بيانات", "Do not type anything into it")
@@ -426,7 +478,7 @@ fun LinkScreen() {
                     }
                     Centered {
                         Seal(word, vc, r.domain.uppercase(Locale.US).take(28) + " · LINK CHECK · " + SimpleDateFormat("dd MMM yyyy", Locale.US).format(Date()).uppercase(Locale.US) + " · ",
-                            sub = sub, line = r.ageDays?.let { L.t("عمر الدومين $it يوم", "Domain $it days old") })
+                            sub = sub, line = r.ageDays?.let { ageText(it) })
                     }
                     Text(r.finalUrl, color = C.Text, fontSize = 13.sp, style = Ltr)
                     var meta = L.t("الدومين الفعلي: ", "Actual domain: ") + r.domain
@@ -456,7 +508,7 @@ fun AboutScreen() {
     val intel = App.intel
     val ctx = LocalContext.current
     Column(Modifier.fillMaxSize()) {
-        TopBar(L.t("عن البرنامج", "About"), { App.screen = Screen.HOME })
+        TopBar(L.t("عن البرنامج", "About"), { App.screen = Screen.SETTINGS })
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 HorusMark(Modifier.size(56.dp))
@@ -543,82 +595,3 @@ fun answerOf(v: String): String = when (v) {
 
 fun verdictColor(v: String): Color = when (v) { "compromised" -> C.Danger; "suspicious" -> C.Warn; else -> C.Safe }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun AutoScanCard() {
-    val ctx = LocalContext.current
-    val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> App.notifyAllowed = ok }
-    Panel {
-        Text(L.t("الفحص التلقائي", "Automatic scan"), color = C.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        Text(L.t("Horus Sec يعمل فحص عميق لوحده في الخلفية، ويبعتلك تنبيه بس لو ظهرت علامة اختراق أو تطبيق جديد أخد صلاحيات خطيرة.",
-            "Horus Sec runs a deep scan on its own in the background, and only alerts you if a sign of compromise appears or a new app gets risky access."), color = C.Text2, fontSize = 13.sp)
-        Spacer(Modifier.height(6.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            AutoScan.choices.forEach { h ->
-                val sel = App.autoHours == h
-                val label = if (h == 0) L.t("مقفول", "Off") else L.t("كل $h ساعات", "Every $h h").replace("كل 12 ساعات", "كل 12 ساعة").replace("كل 24 ساعات", "كل يوم")
-                Box(
-                    Modifier.clip(RoundedCornerShape(6.dp)).background(if (sel) C.Gold else C.Bg).border(1.dp, if (sel) C.Gold else C.Line, RoundedCornerShape(6.dp))
-                        .clickable {
-                            App.setAuto(h)
-                            if (h > 0 && android.os.Build.VERSION.SDK_INT >= 33 && !AutoScan.notificationsAllowed(ctx)) askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                        }.padding(horizontal = 14.dp, vertical = 8.dp),
-                ) { Text(label, color = if (sel) C.OnGold else C.Text, fontSize = 14.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal) }
-            }
-        }
-        if (App.autoHours > 0) {
-            val last = com.horussec.mobile.Prefs.long("lastAutoScan")
-            Text(if (last > 0) L.t("آخر فحص تلقائي: ", "Last automatic scan: ") + stamp.format(Date(last)) else L.t("أول فحص تلقائي بعد ${App.autoHours} ساعات. أندرويد ممكن يأخّره شوية علشان البطارية.", "First automatic scan in ${App.autoHours} hours. Android may delay it a little to save battery."), color = C.Muted, fontSize = 12.sp)
-            if (!App.notifyAllowed) {
-                Text(L.t("التنبيهات مقفولة لـ Horus Sec، فمش هتعرف لو الفحص لقى حاجة.", "Notifications are off for Horus Sec, so you will not hear about findings."), color = C.Gold, fontSize = 13.sp)
-                SmallLink(L.t("شغّل التنبيهات", "Turn on notifications")) {
-                    if (android.os.Build.VERSION.SDK_INT >= 33) askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                    else try { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { }
-                }
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-        Text(L.t("استهلاك البيانات", "Data usage"), color = C.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-        if (App.usageAccess) Text(L.t("مسموح: الفحص العميق بيشوف التطبيقات المخفية اللي بتبعت بيانات كتير.", "Allowed: the deep scan spots hidden apps sending lots of data."), color = C.Safe, fontSize = 13.sp)
-        else {
-            Text(L.t("اسمح بـ Usage access علشان الفحص العميق يكشف التطبيقات اللي بتبعت صورك وتسجيلاتك لبرّه. Horus Sec بيشوف الأرقام بس، مش المحتوى.",
-                "Allow Usage access so the deep scan can spot apps sending your photos and recordings out. Horus Sec sees only the numbers, never the content."), color = C.Text2, fontSize = 13.sp)
-            SmallLink(L.t("اسمح بـ Usage access", "Allow Usage access")) { com.horussec.mobile.DeepScan.openUsageAccess(ctx) }
-        }
-    }
-}
-
-@Composable
-fun RootCard() {
-    val ctx = LocalContext.current
-    AccentPanel(if (App.rootOn) C.Gold else C.Border) {
-        Text(L.t("وضع Root (للخبراء)", "Root mode (experts)"), color = C.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        if (!App.rootDetected && !App.rootOn) {
-            Text(L.t("الموبايل ده مش عليه Root، فالوضع ده مقفول. وده الأفضل لأمانك.", "This phone is not rooted, so this mode is off. That is safer for you."), color = C.Safe, fontSize = 13.sp)
-            Text(L.t("على الموبايلات اللي عليها Root (Magisk أو KernelSU)، الوضع ده بيكشف التطبيقات المتصلة دلوقتي بسيرفرات تحكم، والبرامج المخفية، وتحويل الترافيك، وبيقدر يوقّف أو يعطّل تطبيق خطر بعد موافقتك. متعملش Root علشان تجرّبه: ده بيضعّف حماية الموبايل.",
-                "On rooted phones (Magisk or KernelSU), this mode spots apps connected right now to command servers, hidden programs and traffic redirection, and can stop or disable a dangerous app after you confirm. Do not root your phone to try it: rooting weakens its protection."), color = C.Text2, fontSize = 13.sp)
-            Secondary(L.t("الحالة: مقفول", "Status: off"), { }, Modifier.fillMaxWidth(), enabled = false)
-        } else if (!App.rootOn) {
-            Text(L.t("الموبايل ده عليه Root. لو سمحت لـ Horus Sec بالصلاحية، الفحص العميق هيشوف الاتصالات الشغالة لكل تطبيق ويقارنها بسيرفرات التحكم المعروفة، والبرامج الشغالة، وموديولات Magisk، وسكربتات الإقلاع، وملف hosts، وتحويل الترافيك. وهيقدر يوقّف أو يعطّل أو يقطع النت عن تطبيق خطر بعد موافقتك.",
-                "This phone is rooted. If you grant Horus Sec root, the deep scan checks every app's live connections against known command servers, running programs, Magisk modules, boot scripts, the hosts file and traffic redirection. It can also stop, disable or cut the internet of a dangerous app after you confirm."), color = C.Text2, fontSize = 13.sp)
-            Text(L.t("الـ Root نفسه بيضعّف حماية أندرويد. Horus Sec بيستخدمه للقراءة، ومش بيغيّر حاجة غير بموافقتك على كل خطوة.", "Root itself weakens Android's protection. Horus Sec uses it to read, and changes nothing without your consent for each step."), color = C.Dim, fontSize = 12.sp)
-            Spacer(Modifier.height(4.dp))
-            Secondary(if (App.rootBusy) L.t("مستني موافقة Magisk...", "Waiting for Magisk...") else L.t("فعّل وضع Root", "Turn on root mode"), { App.enableRoot() }, Modifier.fillMaxWidth(), enabled = !App.rootBusy)
-        } else {
-            Text(L.t("شغال: الفحص العميق والفحص التلقائي بيستخدموه.", "On: deep and automatic scans use it."), color = C.Safe, fontSize = 13.sp)
-            Spacer(Modifier.height(4.dp))
-            Secondary(if (App.rootBusy) L.t("بيجمع...", "Collecting...") else L.t("صدّر سجلات النظام كدليل", "Export system logs as evidence"), { App.exportEvidence(ctx) }, Modifier.fillMaxWidth(), enabled = !App.rootBusy)
-            if (App.rootUndo.isNotEmpty()) {
-                Text(L.t("اللي Horus Sec عطّله أو قطع عنه النت:", "Apps Horus Sec disabled or cut off:"), color = C.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                App.rootUndo.forEach { u ->
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        Text((if (u.kind == "block") L.t("نت مقطوع: ", "No internet: ") else L.t("متعطّل: ", "Disabled: ")) + u.pkg, color = C.Text2, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                        SmallLink(L.t("رجّع", "Restore")) { App.rootUndoAction(u) }
-                    }
-                }
-            }
-            SmallLink(L.t("اقفل وضع Root", "Turn off root mode")) { App.disableRoot() }
-        }
-        if (App.rootMsg.isNotEmpty() && App.screen == Screen.HOME) Text(App.rootMsg, color = C.Gold, fontSize = 13.sp)
-    }
-}

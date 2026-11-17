@@ -8,6 +8,7 @@ package com.horussec.mobile.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +31,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,33 +70,39 @@ import com.horussec.mobile.L
 import com.horussec.mobile.R
 import com.horussec.mobile.Sev
 
-/** Horus Sec palette: "Tutankhamun gold" on night lapis. */
+/**
+ * Horus Sec palette. Dark: "Tutankhamun gold" on night lapis. Light: papyrus.
+ * Every colour is read through a getter so switching [light] recolours the whole app.
+ */
 object C {
-    val Bg = Color(0xFF0D1226)
-    val Surface = Color(0xFF161D3A)
-    val Line = Color(0xFF2A3566)
-    val Gold = Color(0xFFE8B23A)
-    val OnGold = Color(0xFF1A1205)
-    val Carnelian = Color(0xFFC23B2E)
-    val Lapis = Color(0xFF24357F)
-    val Text = Color(0xFFF4EFE3)
-    val Text2 = Color(0xFFD9D4C7)
-    val Muted = Color(0xFFA9A99F)
-    val Dim = Color(0xFF858795)
-    val Safe = Color(0xFF3BC1B0)
-    val Warn = Color(0xFFF08A24)
-    val Danger = Color(0xFFE5484D)
-    val Bar = Color(0xFF090D1C)
+    var light by mutableStateOf(false)
+    private fun c(dark: Long, day: Long) = Color(if (light) day else dark)
+
+    val Bg: Color get() = c(0xFF0D1226, 0xFFF4ECDA)
+    val Surface: Color get() = c(0xFF161D3A, 0xFFEAE0C8)
+    val Line: Color get() = c(0xFF2A3566, 0xFFCFC2A3)
+    val Gold: Color get() = c(0xFFE8B23A, 0xFF87590A)
+    val OnGold: Color get() = c(0xFF1A1205, 0xFFFFF8E8)
+    val Carnelian: Color get() = c(0xFFC23B2E, 0xFFA8321F)
+    val Lapis: Color get() = c(0xFF24357F, 0xFF24357F)
+    val Text: Color get() = c(0xFFF4EFE3, 0xFF1F1A12)
+    val Text2: Color get() = c(0xFFD9D4C7, 0xFF3A3428)
+    val Muted: Color get() = c(0xFFA9A99F, 0xFF625B4C)
+    val Dim: Color get() = c(0xFF858795, 0xFF716A5A)
+    val Safe: Color get() = c(0xFF3BC1B0, 0xFF0B6F63)
+    val Warn: Color get() = c(0xFFF08A24, 0xFFA84A07)
+    val Danger: Color get() = c(0xFFE5484D, 0xFFB3261E)
+    val Bar: Color get() = c(0xFF090D1C, 0xFFE9DFC5)
 
     // names used across the older screens
-    val Navy = Bg
-    val NavyDark = Bar
-    val Card = Surface
-    val Border = Line
-    val Green = Safe
-    val LightGreen = Safe
-    val Red = Danger
-    val Orange = Warn
+    val Navy: Color get() = Bg
+    val NavyDark: Color get() = Bar
+    val Card: Color get() = Surface
+    val Border: Color get() = Line
+    val Green: Color get() = Safe
+    val LightGreen: Color get() = Safe
+    val Red: Color get() = Danger
+    val Orange: Color get() = Warn
 }
 
 val Readex = FontFamily(
@@ -190,7 +206,7 @@ fun Seal(
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = size * 0.2f)) {
             val big = when { word.length <= 5 -> 46; word.length <= 8 -> 36; else -> 28 }
-            Text(word, color = color, fontSize = (big * size.value / 250f).sp, fontWeight = FontWeight.Bold, maxLines = 1, textAlign = TextAlign.Center)
+            Text(word, color = color, fontSize = (big * size.value / 250f).sp, fontWeight = FontWeight.Bold, maxLines = 1, textAlign = TextAlign.Center, lineHeight = 1.2.em)
             if (sub != null) Text(sub, color = C.Text2, fontSize = (13 * size.value / 250f).sp, textAlign = TextAlign.Center, maxLines = 2)
             if (line != null) Text(line, color = color, fontSize = (12 * size.value / 250f).sp, textAlign = TextAlign.Center, maxLines = 1)
         }
@@ -240,7 +256,7 @@ fun Secondary(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, 
 
 @Composable
 fun SmallLink(text: String, color: Color = C.Gold, onClick: () -> Unit) {
-    TextButton(onClick = onClick, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)) {
+    TextButton(onClick = onClick, modifier = Modifier.heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
         Text(text, color = color, fontSize = 14.sp)
     }
 }
@@ -248,8 +264,9 @@ fun SmallLink(text: String, color: Color = C.Gold, onClick: () -> Unit) {
 /** A text action such as "امسحه ←" in the colour of what it fixes. */
 @Composable
 fun ActionText(text: String, color: Color = C.Gold, onClick: () -> Unit) {
-    Text(text + "  " + fwd(), color = color, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.clip(Square).clickable(onClick = onClick).padding(vertical = 6.dp, horizontal = 2.dp))
+    Box(Modifier.heightIn(min = 48.dp).clip(Square).clickable(onClick = onClick).padding(horizontal = 2.dp), contentAlignment = Alignment.CenterStart) {
+        Text(text + "  " + fwd(), color = color, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+    }
 }
 
 @Composable
@@ -283,6 +300,57 @@ fun TopBar(title: String?, onBack: (() -> Unit)?, extra: (@Composable () -> Unit
         // the thin gold / lapis band under the bar
         Row(Modifier.fillMaxWidth().height(2.dp)) {
             repeat(24) { i -> Box(Modifier.weight(1f).fillMaxSize().background(if (i % 2 == 0) C.Gold else C.Lapis)) }
+        }
+    }
+}
+
+// ------------------------------------------------------------------ choices, "why?" and the bottom bar
+@Composable
+fun Choice(text: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.heightIn(min = 44.dp).clip(Square).background(if (selected) C.Gold else C.Bg)
+            .border(1.dp, if (selected) C.Gold else C.Line, Square).clickable(onClick = onClick).padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) { Text(text, color = if (selected) C.OnGold else C.Text, fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal) }
+}
+
+/** One short line, with the long explanation behind "ليه؟". */
+@Composable
+fun Why(short: String, long: String, shortColor: Color = C.Text2) {
+    var open by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    Text(short, color = shortColor, fontSize = 14.sp)
+    Text(if (open) L.t("اخفي", "Hide") else L.t("ليه؟", "Why?"), color = C.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.heightIn(min = 40.dp).clip(Square).clickable { open = !open }.padding(vertical = 10.dp))
+    if (open) Text(long, color = C.Muted, fontSize = 13.sp)
+}
+
+enum class Tab { SECURITY, LINKS, SETTINGS }
+
+@Composable
+fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
+    Column(Modifier.fillMaxWidth().background(C.Bar)) {
+        Hairline()
+        Row(Modifier.fillMaxWidth().height(64.dp)) {
+            Tab.entries.forEach { t ->
+                val sel = t == current
+                val col = if (sel) C.Gold else C.Muted
+                Column(
+                    Modifier.weight(1f).fillMaxSize().clickable { onSelect(t) },
+                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+                ) {
+                    Box(Modifier.width(28.dp).height(2.dp).background(if (sel) C.Gold else Color.Transparent))
+                    Spacer(Modifier.height(6.dp))
+                    when (t) {
+                        Tab.SECURITY -> HorusMark(Modifier.size(24.dp), color = col, pupil = if (sel) C.Carnelian else col, small = true)
+                        Tab.LINKS -> Icon(Icons.Filled.Search, null, tint = col, modifier = Modifier.size(24.dp))
+                        Tab.SETTINGS -> Icon(Icons.Filled.Settings, null, tint = col, modifier = Modifier.size(24.dp))
+                    }
+                    Text(
+                        when (t) { Tab.SECURITY -> L.t("الأمان", "Security"); Tab.LINKS -> L.t("اللينكات", "Links"); Tab.SETTINGS -> L.t("الإعدادات", "Settings") },
+                        color = col, fontSize = 12.sp, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal,
+                    )
+                }
+            }
         }
     }
 }

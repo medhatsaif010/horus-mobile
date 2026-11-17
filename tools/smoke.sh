@@ -34,12 +34,11 @@ adb shell am start -n $A --es horus_lang ar --es horus_screen about
 shot 11b-about-ar 3
 adb shell am start -n $A --es horus_screen legal
 shot 11c-legal-ar 3
-adb shell am start -n $A --es horus_lang ar --es horus_screen home
-sleep 3
+adb shell am start -n $A --es horus_lang ar --es horus_screen settings
+shot 12b-settings 3
 adb shell input swipe 160 560 160 80 300
 adb shell input swipe 160 560 160 80 300
-adb shell input swipe 160 560 160 80 300
-shot 12b-rootcard-off 2
+shot 12c-settings-2 2
 adb shell am start -n $A --es horus_lang ar --es horus_screen home --ez horus_fakeupdate true
 shot 12-home-update 3
 adb shell pm grant $P android.permission.POST_NOTIFICATIONS
@@ -50,22 +49,29 @@ shot 13-notification 3
 adb shell cmd statusbar collapse
 adb shell am start -n $A --ez horus_autoscan true --ez horus_deep false
 shot 14-quick-result 12
-adb shell am start -n $A --ez horus_rootmode true --es horus_screen home
+adb shell am start -n $A --ez horus_rootmode true --es horus_screen settings
 sleep 25
 adb shell input swipe 160 560 160 80 300
 adb shell input swipe 160 560 160 80 300
-adb shell input swipe 160 560 160 80 300
 shot 16-rootcard 3
-adb shell input swipe 160 560 160 300 300
-shot 17-rootcard-2 2
 adb shell am start -n $A --ei horus_auto 3 --ez horus_runworker true --es horus_screen home
 sleep 40
 adb shell am force-stop $P
 adb shell am start -n $A
-sleep 6
-adb shell input swipe 160 560 160 80 300
-adb shell input swipe 160 560 160 80 300
-shot 15-autoscan 3
+shot 15-home-history 6
+adb shell am start -n $A --es horus_screen settings
+shot 15b-autoscan 3
+adb shell am start -n $A --es horus_theme light --es horus_screen home
+shot 18-home-light 3
+adb shell am start -n $A --ez horus_autoscan true
+shot 19-result-light 20
+adb shell am start -n $A --es horus_screen settings
+shot 19b-settings-light 3
+adb shell am start -n $A --es horus_theme dark --es horus_screen link
+shot 20-link-tab 3
+adb shell am start -n $A --ez horus_widgetshot true
+sleep 3
+adb exec-out run-as $P cat cache/widget.png > shots/21-widget.png
 adb shell dumpsys jobscheduler | grep -A3 "horussec" | head -20 > shots/jobs.txt
 adb shell dumpsys package $P | grep -E "versionName|versionCode|targetSdk" > shots/package.txt
 adb logcat -d -b crash | grep -iE "horussec|FATAL EXCEPTION" -A20 > shots/crash.txt || true
