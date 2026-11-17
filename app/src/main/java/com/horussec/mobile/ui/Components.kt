@@ -173,8 +173,10 @@ fun Seal(
     sub: String? = null,
     line: String? = null,
     progress: Float? = null,
-    size: Dp = 224.dp,
+    size: Dp = 0.dp,
 ) {
+    @Suppress("NAME_SHADOWING")
+    val size = if (size > 0.dp) size else (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp * 0.62f).coerceIn(220f, 320f).dp
     val ctx = LocalContext.current
     val tf = remember { try { androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.readex_medium) } catch (e: Exception) { null } }
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
@@ -204,11 +206,19 @@ fun Seal(
                 cv.nativeCanvas.drawTextOnPath(ring, path, 0f, p.textSize * 0.35f, p)
             }
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = size * 0.2f)) {
-            val big = when { word.length <= 5 -> 46; word.length <= 8 -> 36; else -> 28 }
-            Text(word, color = color, fontSize = (big * size.value / 250f).sp, fontWeight = FontWeight.Bold, maxLines = 1, textAlign = TextAlign.Center, lineHeight = 1.2.em)
-            if (sub != null) Text(sub, color = C.Text2, fontSize = (13 * size.value / 250f).sp, textAlign = TextAlign.Center, maxLines = 2)
-            if (line != null) Text(line, color = color, fontSize = (12 * size.value / 250f).sp, textAlign = TextAlign.Center, maxLines = 1)
+        // text inside the seal scales with the seal, not with the phone's font-size setting, and shrinks to fit the inner ring
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val fs = density.fontScale
+        val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+        val k = size.value / 250f
+        val maxW = with(density) { (size * 0.52f).toPx() }
+        var wordSp = (when { word.length <= 5 -> 46; word.length <= 8 -> 36; else -> 28 }) * k
+        while (wordSp > 14f && measurer.measure(word, TextStyle(fontSize = (wordSp / fs).sp, fontWeight = FontWeight.Bold, fontFamily = Readex)).size.width > maxW) wordSp -= 2f
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(size * 0.54f)) {
+            Text(word, color = color, fontSize = (wordSp / fs).sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, textAlign = TextAlign.Center, lineHeight = 1.2.em)
+            if (sub != null) Text(sub, color = C.Text2, fontSize = (12.5f * k / fs).sp, textAlign = TextAlign.Center, maxLines = 2, lineHeight = 1.35.em,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.width(size * 0.48f))
+            if (line != null) Text(line, color = color, fontSize = (12 * k / fs).sp, textAlign = TextAlign.Center, maxLines = 1)
         }
     }
 }

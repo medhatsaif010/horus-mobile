@@ -35,8 +35,8 @@ import com.horussec.mobile.L
 import com.horussec.mobile.Screen
 
 object Owner {
-    val nameAr = "مدحت سيف عبد الحميد"
-    val nameEn = "Medhat Seif Abd El Hamid"
+    val nameAr = "مدحت سيف"
+    val nameEn = "Medhat Saif"
     const val year = "2026"
     const val contact = "https://github.com/medhatsaif010/horus-mobile-releases/issues"
     fun name() = L.t(nameAr, nameEn)

@@ -35,6 +35,10 @@ object Analyzer {
     private val systemLike = Regex("^(system|android system|system service|system update|settings|google play services|google services|wi-?fi|battery|update|device health|security update|تحديث النظام|خدمات النظام|الإعدادات|النظام|خدمات جوجل)$", RegexOption.IGNORE_CASE)
     private val mdmInstallers = setOf("com.google.android.apps.work.clouddpc", "com.android.vending")
 
+    /** Signing-certificate SHA-1s of Google's own apps; an app signed with one of these is really Google's. */
+    private val googleCerts = setOf("38918a453d07199354f8b19af05ec6562ced5788", "24bb24c05e47e0aefa68a58a766179d9b613a600")
+    private fun isGoogleSigned(a: AppInfo) = a.certSha1.any { it.replace(":", "").lowercase() in googleCerts }
+
     fun isSideloaded(a: AppInfo, selfPkg: String) = !a.system && a.pkg != selfPkg && (a.installer == null || a.installer !in stores)
 
     fun analyze(d: DeviceData, intel: IntelData): ScanResult {
@@ -309,7 +313,7 @@ object Analyzer {
             for (a in user) {
                 if (a.pkg in skip || a.pkg in stalkerPkgs) continue
                 val pretendsSystem = systemLike.matches(a.label.trim()) || a.pkg.startsWith("com.android.") || a.pkg.startsWith("com.google.android.")
-                if (pretendsSystem && isSide(a)) findings.add(Finding(
+                if (pretendsSystem && isSide(a) && !isGoogleSigned(a)) findings.add(Finding(
                     key = "fake-system:${a.pkg}", sev = Sev.HIGH, ioc = true, pkg = a.pkg,
                     title = L.t("تطبيق متنكّر في شكل تطبيق نظام: ${a.label}", "App disguised as a system app: ${a.label}"),
                     why = L.t("اسمه أو اسم حزمته شبه تطبيقات أندرويد أو Google، بس اتسطّب من برّه المتجر. برامج التجسس بتعمل كده علشان محدش يشك فيها.",
@@ -513,8 +517,12 @@ object Analyzer {
 
         // score
         val sorted = findings.sortedBy { it.sev.rank }
+        // one kind of problem found in many apps counts at most twice, so a long list cannot drive the score to zero on its own
         var lows = 0; var penalty = 0
-        for (f in sorted) { if (f.sev == Sev.LOW) lows += 1 else penalty += f.sev.weight }
+        for ((_, g) in sorted.filter { it.sev != Sev.LOW }.groupBy { it.key.substringBefore(':') }) {
+            penalty += minOf(g.map { it.sev.weight }.sum(), 2 * g.maxOf { it.sev.weight })
+        }
+        lows = sorted.count { it.sev == Sev.LOW }
         penalty += minOf(lows, 6)
         penalty += minOf(checks.map { when (it.state) { CheckState.FAIL -> 3; CheckState.WARN -> 1; else -> 0 } }.sum(), 8)
         var score = (100 - penalty).coerceIn(0, 100)
@@ -530,7 +538,7 @@ object Analyzer {
         if (changes.isEmpty() && d.prev == null) changes.add(L.t("ده أول فحص، والفحص الجاي هيقولك إيه اللي اتغيّر.", "This is the first scan. The next one will show what changed."))
         else {
             val prevScore = d.prev?.score
-            if (prevScore != null && prevScore != score) changes.add(0, L.t("رقم الأمان كان $prevScore", "Security score was $prevScore"))
+            if (prevScore != null && prevScore != score) changes.add(0, L.t("الحماية كانت $prevScore", "Protection was $prevScore"))
         }
 
         return ScanResult(
