@@ -130,8 +130,8 @@ fun ProtectionLine(score: Int, r: com.horussec.mobile.ScanResult?, centered: Boo
     Text(scoreLine(score), color = scoreColor(score), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, textAlign = align, modifier = Modifier.fillMaxWidth())
     val p = r?.let { potential(it) }
     if (p != null) Text(
-        if (p.first == 1) L.t("لو عملت أول حاجة في القايمة توصل لحوالي ${p.second}", "Do the first thing on the list to reach about ${p.second}")
-        else L.t("لو عملت أول ${p.first} حاجات في القايمة توصل لحوالي ${p.second}", "Do the first ${p.first} things on the list to reach about ${p.second}"),
+        if (p.first == 1) L.t("أول حاجة في القايمة توصلك لـ ${p.second}", "Do the first thing on the list to reach about ${p.second}")
+        else L.t("أول ${p.first} حاجات في القايمة توصلك لـ ${p.second}", "Do the first ${p.first} things on the list to reach about ${p.second}"),
         color = C.Muted, fontSize = 13.sp, textAlign = align, modifier = Modifier.fillMaxWidth())
 }
 
