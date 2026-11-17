@@ -57,7 +57,7 @@ object App {
     var needInstallPermission by mutableStateOf(false)
 
     /** "system", "dark" or "light" */
-    var theme by mutableStateOf("system")
+    var theme by mutableStateOf("dark")
     /** true right after a scan finishes, so the result screen plays the stamp once */
     var justScanned by mutableStateOf(false)
     /** protection score of the scan before the one on screen */
@@ -69,7 +69,7 @@ object App {
         ctx = c.applicationContext
         Prefs.init(ctx)
         L.ar = (Prefs.str("lang") ?: "ar") == "ar"
-        theme = Prefs.str("theme") ?: "system"
+        theme = Prefs.str("theme") ?: "dark"
         lastScore = Prefs.str("lastScore")?.toIntOrNull()
         lastScanAt = Prefs.long("lastScanAt")
         lastVerdict = Prefs.str("lastVerdict")
