@@ -38,7 +38,9 @@ object Owner {
     val nameAr = "مدحت سيف"
     val nameEn = "Medhat Saif"
     const val year = "2026"
-    const val contact = "https://github.com/medhatsaif010/horus-mobile-releases/issues"
+    const val linkedin = "https://www.linkedin.com/in/medhat-saif/"
+    const val credly = "https://www.credly.com/users/medhat-saif/badges/credly"
+    const val contact = linkedin
     fun name() = L.t(nameAr, nameEn)
     fun copyright() = "© $year " + name() + ". " + L.t("كل الحقوق محفوظة.", "All rights reserved.")
 }

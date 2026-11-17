@@ -530,9 +530,9 @@ fun AboutScreen() {
                     Secondary(L.t("الخصوصية", "Privacy"), { LegalPage.page = 1; App.screen = Screen.LEGAL }, Modifier.weight(1f))
                 }
                 Secondary(L.t("التراخيص ومصادر البيانات", "Licences and data sources"), { LegalPage.page = 2; App.screen = Screen.LEGAL }, Modifier.fillMaxWidth())
-                SmallLink(L.t("تواصل مع المطوّر", "Contact the developer")) {
-                    try { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(Owner.contact)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { }
-                }
+                fun open(u: String) { try { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { } }
+                ActionText(L.t("تواصل مع المطوّر على LinkedIn", "Contact the developer on LinkedIn")) { open(Owner.linkedin) }
+                ActionText(L.t("الشهادات المهنية للمطوّر (Credly)", "The developer's certifications (Credly)")) { open(Owner.credly) }
             }
             Panel {
                 Text(L.t("قاعدة التهديدات", "Threat intel"), color = C.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
