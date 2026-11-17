@@ -16,7 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class Screen { HOME, SCANNING, RESULT, LINK, SETTINGS, ABOUT, LEGAL }
+enum class Screen { HOME, SCANNING, RESULT, LINK, TOOLS, REPORTS, SETTINGS, ABOUT, LEGAL }
 
 /** App-wide state. Lives as long as the process, so a rotation or theme change keeps the scan. */
 object App {
@@ -24,6 +24,8 @@ object App {
     lateinit var ctx: Context
 
     var screen by mutableStateOf(Screen.HOME)
+    /** the launch screen with the logo, shown once per process start */
+    var splash by mutableStateOf(true)
     var scanStep by mutableIntStateOf(0)
     var device: DeviceData? by mutableStateOf(null)
     var result: ScanResult? by mutableStateOf(null)
@@ -205,7 +207,7 @@ object App {
         scope.launch {
             val ok = withContext(Dispatchers.IO) { Su.granted() }
             if (ok) { Prefs.put("rootMode", "1"); rootOn = true; rootMsg = L.t("وضع Root اتفعّل. الفحص العميق الجاي هيستخدمه.", "Root mode is on. The next deep scan will use it.") }
-            else rootMsg = L.t("صلاحية Root اترفضت أو مش موجودة. لو عندك Magisk، افتحه واسمح لـ Horus Sec من Superuser.", "Root access was refused or is not available. If you use Magisk, open it and allow Horus Sec under Superuser.")
+            else rootMsg = L.t("صلاحية Root اترفضت أو مش موجودة. لو عندك Magisk، افتحه واسمح لـ Horus Shield من Superuser.", "Root access was refused or is not available. If you use Magisk, open it and allow Horus Shield under Superuser.")
             rootBusy = false
         }
     }
@@ -229,7 +231,7 @@ object App {
                 }
             }
             rootUndo = RootScan.undoList()
-            rootMsg = if (ok) L.t("اتنفّذ على $pkg.", "Done for $pkg.") else L.t("متنفّذش. اتأكد إن Horus Sec لسه مسموحله بـ Root.", "It did not work. Make sure Horus Sec still has root access.")
+            rootMsg = if (ok) L.t("اتنفّذ على $pkg.", "Done for $pkg.") else L.t("متنفّذش. اتأكد إن Horus Shield لسه مسموحله بـ Root.", "It did not work. Make sure Horus Shield still has root access.")
             rootBusy = false
         }
     }

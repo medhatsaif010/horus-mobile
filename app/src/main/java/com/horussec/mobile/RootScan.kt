@@ -173,14 +173,14 @@ echo '##END'
         dir.listFiles()?.forEach { it.delete() }
         val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date())
         val f = File(dir, "HorusSec-evidence-$stamp.txt")
-        f.writeText("Horus Sec Mobile - root evidence $stamp\n\n$summary\n\n$scan\n\n$logs")
+        f.writeText("Horus Shield - root evidence $stamp\n\n$summary\n\n$scan\n\n$logs")
         val sha = java.security.MessageDigest.getInstance("SHA-256").digest(f.readBytes()).joinToString("") { "%02x".format(it) }
         File(dir, f.name + ".sha256").writeText("$sha  ${f.name}\n")
         val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f)
         return Intent.createChooser(
             Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_STREAM, uri)
                 .putExtra(Intent.EXTRA_TEXT, "SHA-256: $sha").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
-            "Horus Sec evidence",
+            "Horus Shield evidence",
         ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }

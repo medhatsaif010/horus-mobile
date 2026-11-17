@@ -1,12 +1,2 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Horus Sec mark, small and heavy, for the status bar -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp" android:height="24dp"
-    android:viewportWidth="100" android:viewportHeight="100">
-    <path android:pathData="M50,6 L87,19 V47 C87,71 71,87 50,95 C29,87 13,71 13,47 V19 Z"
-        android:strokeColor="#FFFFFFFF" android:strokeWidth="9" android:strokeLineJoin="round" android:fillColor="#00000000" />
-    <path android:pathData="M25,48 Q50,30 75,48 Q50,64 25,48 Z"
-        android:strokeColor="#FFFFFFFF" android:strokeWidth="7" android:strokeLineJoin="round" android:fillColor="#00000000" />
-    <path android:pathData="M41.5,48 a8.5,8.5 0 1,0 17,0 a8.5,8.5 0 1,0 -17,0" android:fillColor="#FFFFFFFF" />
-    <path android:pathData="M45,60 L40,78" android:strokeColor="#FFFFFFFF" android:strokeWidth="7" android:strokeLineCap="round" />
-</vector>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24"><group android:translateX="-0.20547945205479445" android:translateY="3.2602739726027403" android:scaleX="0.030136986301369864" android:scaleY="0.030136986301369864"><path android:pathData="M82 146 C232 146 322 120 402 80 C472 46 602 46 738 94" android:strokeColor="#FFFFFF" android:strokeWidth="44" android:strokeLineCap="round" android:strokeLineJoin="round"/><path android:pathData="M82 250 H372" android:strokeColor="#FFFFFF" android:strokeWidth="42" android:strokeLineCap="round" android:strokeLineJoin="round"/><path android:pathData="M350 248 C430 150 620 128 746 260" android:strokeColor="#FFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/><path android:pathData="M370 246 C460 312 640 314 712 258" android:strokeColor="#FFFFFF" android:strokeWidth="30" android:strokeLineCap="round" android:strokeLineJoin="round"/><path android:pathData="M568 318 C474 446 362 522 240 518 C120 514 58 462 64 410 C70 360 130 340 170 362 C202 380 198 422 170 432 C148 440 130 424 136 404" android:strokeColor="#FFFFFF" android:strokeWidth="36" android:strokeLineCap="round" android:strokeLineJoin="round"/><path android:pathData="M570 300 L616 300 L618 384 L642 420 L622 444 L618 528 L584 540 L576 520 Z" android:fillColor="#FFFFFF"/><path android:pathData="M470.0,226.0 a60.0,60.0 0 1,0 120.0,0 a60.0,60.0 0 1,0 -120.0,0" android:fillColor="#FFFFFF"/></group></vector>

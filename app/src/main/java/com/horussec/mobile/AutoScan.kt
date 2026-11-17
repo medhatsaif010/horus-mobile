@@ -64,15 +64,15 @@ object AutoScan {
         val newAdm = d.admins.filter { it !in prev.admins && byPkg[it]?.system == false }
         val newSide = d.apps.filter { it.pkg !in prev.apps && Analyzer.isSideloaded(it, d.selfPkg) }
         if (newIocs.isNotEmpty()) {
-            val title = if (newIocs.any { it.sev == Sev.CRIT }) L.t("Horus Sec: علامات اختراق على الموبايل", "Horus Sec: signs of compromise on this phone")
-            else L.t("Horus Sec: حاجة جديدة محتاجة تتأكد منها", "Horus Sec: something new needs checking")
+            val title = if (newIocs.any { it.sev == Sev.CRIT }) L.t("Horus Shield: علامات اختراق على الموبايل", "Horus Shield: signs of compromise on this phone")
+            else L.t("Horus Shield: حاجة جديدة محتاجة تتأكد منها", "Horus Shield: something new needs checking")
             return title to newIocs.first().title
         }
         val lines = newAcc.map { L.t("صلاحية Accessibility جديدة: ", "New Accessibility access: ") + (byPkg[it]?.label ?: it) } +
             newAdm.map { L.t("Device admin جديد: ", "New device admin: ") + (byPkg[it]?.label ?: it) } +
             newSide.map { L.t("تطبيق جديد من برّه المتجر: ", "New app from outside a store: ") + it.label }
         if (lines.isEmpty()) return null
-        return L.t("Horus Sec: اتغيّر حاجة على الموبايل", "Horus Sec: something changed on the phone") to lines.take(3).joinToString("\n")
+        return L.t("Horus Shield: اتغيّر حاجة على الموبايل", "Horus Shield: something changed on the phone") to lines.take(3).joinToString("\n")
     }
 
     @SuppressLint("MissingPermission")

@@ -77,8 +77,8 @@ fun LegalScreen() {
 
 private fun terms(): List<Pair<String, String>> = listOf(
     L.t("الملكية", "Ownership") to L.t(
-        "Horus Sec و Horus Sec Mobile، بالكود والتصميم والاسم واللوجو، ملك ${Owner.nameAr}. كل الحقوق محفوظة. ممنوع نسخ التطبيق أو تعديله أو فك تجميعه أو إعادة توزيعه أو بيعه أو نشر نسخة منه باسم تاني من غير إذن مكتوب.",
-        "Horus Sec and Horus Sec Mobile, including the code, design, name and logo, are owned by ${Owner.nameEn}. All rights reserved. You may not copy, modify, decompile, redistribute, sell or publish the app under another name without written permission."),
+        "Horus Shield و Horus Shield، بالكود والتصميم والاسم واللوجو، ملك ${Owner.nameAr}. كل الحقوق محفوظة. ممنوع نسخ التطبيق أو تعديله أو فك تجميعه أو إعادة توزيعه أو بيعه أو نشر نسخة منه باسم تاني من غير إذن مكتوب.",
+        "Horus Shield and Horus Shield, including the code, design, name and logo, are owned by ${Owner.nameEn}. All rights reserved. You may not copy, modify, decompile, redistribute, sell or publish the app under another name without written permission."),
     L.t("ترخيص الاستخدام", "Licence to use") to L.t(
         "مسموحلك تسطّب التطبيق وتستخدمه على أجهزتك الشخصية والعائلية. الاستخدام التجاري (شركات، مراكز صيانة، خدمات مدفوعة) محتاج اتفاق منفصل.",
         "You may install and use the app on your own and your family's devices. Commercial use (companies, repair shops, paid services) needs a separate agreement."),
@@ -113,12 +113,13 @@ private fun privacy(): List<Pair<String, String>> = listOf(
 )
 
 private fun licences(): List<Pair<String, String>> = listOf(
-    "Horus Sec Mobile" to Owner.copyright() + L.t(" برنامج مملوك وغير مفتوح المصدر.", " Proprietary, closed-source software."),
+    "Horus Shield" to Owner.copyright() + L.t(" برنامج مملوك وغير مفتوح المصدر.", " Proprietary, closed-source software."),
     "Stalkerware indicators — Echap" to "Echap stalkerware-indicators, licensed under Creative Commons Attribution 4.0 (CC BY 4.0). https://github.com/AssoEchap/stalkerware-indicators",
     "abuse.ch — ThreatFox, URLhaus, MalwareBazaar" to "Data from abuse.ch, released under CC0 1.0 (public domain). https://abuse.ch",
     "CISA Known Exploited Vulnerabilities" to "U.S. Cybersecurity and Infrastructure Security Agency, public domain. https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
     "RDAP" to "Domain registration data via rdap.org.",
     "Android Jetpack, Jetpack Compose, AndroidX WorkManager" to "Copyright The Android Open Source Project. Licensed under the Apache License, Version 2.0. https://www.apache.org/licenses/LICENSE-2.0",
-    "Readex Pro" to "Copyright 2018 The Readex Pro Project Authors. Licensed under the SIL Open Font License, Version 1.1. https://openfontlicense.org",
+    "Cairo" to "Copyright 2009 The Cairo Project Authors. Licensed under the SIL Open Font License, Version 1.1. https://openfontlicense.org",
+    "Montserrat" to "Copyright 2024 The Montserrat Project Authors. Licensed under the SIL Open Font License, Version 1.1. https://openfontlicense.org",
     "Kotlin, kotlinx.coroutines" to "Copyright JetBrains s.r.o. and contributors. Licensed under the Apache License, Version 2.0.",
 )

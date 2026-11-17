@@ -337,8 +337,8 @@ object Analyzer {
                 title = L.t("الشبكة اللي إنت عليها بتغيّر عناوين المواقع (DNS)", "The network you are on changes site addresses (DNS)"),
                 why = L.t("سألنا عن مواقع عناوينها ثابتة ومعروفة، والرد جه بعناوين تانية. ده معناه إن الراوتر أو الشبكة ممكن تكون مخترقة وبتوديك لمواقع مزيفة.",
                     "We looked up sites whose addresses are fixed and well known, and got different answers. The router or network may be compromised and sending you to fake sites."),
-                todo = L.t("اقطع الواي فاي ده وكمّل على باقة الموبايل، ومتدخلش حسابات البنك من الشبكة دي. ولو دي شبكة بيتك، افحصها من Horus Sec على الكمبيوتر وغيّر باسورد الراوتر.",
-                    "Leave this Wi-Fi and use mobile data, and do not open banking apps on this network. If it is your home network, check it with Horus Sec on a computer and change the router password."),
+                todo = L.t("اقطع الواي فاي ده وكمّل على باقة الموبايل، ومتدخلش حسابات البنك من الشبكة دي. ولو دي شبكة بيتك، افحصها من Horus Shield على الكمبيوتر وغيّر باسورد الراوتر.",
+                    "Leave this Wi-Fi and use mobile data, and do not open banking apps on this network. If it is your home network, check it with Horus Shield on a computer and change the router password."),
                 evidence = deep.dnsBad, fixes = listOf(Fix.NETWORK),
             ))
             deep.deviceOwner?.let { o ->

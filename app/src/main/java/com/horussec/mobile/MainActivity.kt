@@ -32,7 +32,7 @@ import com.horussec.mobile.ui.ResultScreen
 import com.horussec.mobile.ui.ScanningScreen
 
 private val horusType = androidx.compose.material3.Typography().let { t ->
-    fun f(s: androidx.compose.ui.text.TextStyle) = s.copy(fontFamily = com.horussec.mobile.ui.Readex, lineHeight = androidx.compose.ui.unit.TextUnit(1.55f, androidx.compose.ui.unit.TextUnitType.Em))
+    fun f(s: androidx.compose.ui.text.TextStyle) = s.copy(fontFamily = com.horussec.mobile.ui.Cairo, lineHeight = androidx.compose.ui.unit.TextUnit(1.55f, androidx.compose.ui.unit.TextUnitType.Em))
     t.copy(
         displayLarge = f(t.displayLarge), displayMedium = f(t.displayMedium), displaySmall = f(t.displaySmall),
         headlineLarge = f(t.headlineLarge), headlineMedium = f(t.headlineMedium), headlineSmall = f(t.headlineSmall),
@@ -66,13 +66,16 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalLayoutDirection provides if (L.ar) LayoutDirection.Rtl else LayoutDirection.Ltr) {
                     Surface(Modifier.fillMaxSize(), color = C.Bg, contentColor = C.Text) {
                         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                            BackHandler(enabled = App.screen != Screen.HOME && App.screen != Screen.SCANNING) { App.screen = when (App.screen) { Screen.LEGAL -> Screen.ABOUT; Screen.ABOUT -> Screen.SETTINGS; else -> Screen.HOME } }
-                            when (App.screen) {
+                            BackHandler(enabled = App.screen != Screen.HOME && App.screen != Screen.SCANNING) { App.screen = when (App.screen) { Screen.LEGAL -> Screen.ABOUT; Screen.ABOUT -> Screen.SETTINGS; Screen.LINK -> Screen.TOOLS; else -> Screen.HOME } }
+                            androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(1400); App.splash = false }
+                            if (App.splash) com.horussec.mobile.ui.SplashScreen() else when (App.screen) {
                                 Screen.HOME -> HomeScreen()
                                 Screen.SCANNING -> ScanningScreen()
                                 Screen.RESULT -> ResultScreen()
                                 Screen.LINK -> LinkScreen()
                                 Screen.SETTINGS -> com.horussec.mobile.ui.SettingsScreen()
+                                Screen.TOOLS -> com.horussec.mobile.ui.ToolsScreen()
+                                Screen.REPORTS -> com.horussec.mobile.ui.ReportsScreen()
                                 Screen.ABOUT -> AboutScreen()
                                 Screen.LEGAL -> com.horussec.mobile.ui.LegalScreen()
                             }
@@ -102,7 +105,7 @@ class MainActivity : ComponentActivity() {
             // test hooks used by the automated smoke test (debug builds only)
             i.getStringExtra("horus_lang")?.let { App.setLang(it == "ar") }
             i.getStringExtra("horus_theme")?.let { App.chooseTheme(it) }
-            when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME; "legal" -> App.screen = Screen.LEGAL; "settings" -> App.screen = Screen.SETTINGS; "link" -> App.screen = Screen.LINK }
+            when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME; "legal" -> App.screen = Screen.LEGAL; "settings" -> App.screen = Screen.SETTINGS; "link" -> App.screen = Screen.LINK; "tools" -> App.screen = Screen.TOOLS; "reports" -> App.screen = Screen.REPORTS }
             if (i.getBooleanExtra("horus_widgetshot", false)) try {
                 java.io.FileOutputStream(java.io.File(cacheDir, "widget.png")).use { SealWidget.bitmap(this, 420).compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
             } catch (e: Exception) { }
@@ -110,7 +113,7 @@ class MainActivity : ComponentActivity() {
             if (i.getBooleanExtra("horus_rootmode", false)) { App.rootDetected = true; App.enableRoot() }
             if (i.hasExtra("horus_auto")) App.setAuto(i.getIntExtra("horus_auto", 0))
             if (i.getBooleanExtra("horus_runworker", false)) androidx.work.WorkManager.getInstance(this).enqueue(androidx.work.OneTimeWorkRequestBuilder<ScanWorker>().build())
-            if (i.getBooleanExtra("horus_testnotify", false)) AutoScan.notify(this, "Horus Sec: علامات اختراق على الموبايل", "تجربة: تنبيه الفحص التلقائي")
+            if (i.getBooleanExtra("horus_testnotify", false)) AutoScan.notify(this, "Horus Shield: علامات اختراق على الموبايل", "تجربة: تنبيه الفحص التلقائي")
             if (i.getBooleanExtra("horus_fakeupdate", false)) App.update = UpdateInfo(BuildConfig.VERSION_CODE + 1, "1.0.${BuildConfig.VERSION_CODE + 1}", "https://github.com/medhatsaif010/horus-mobile/releases/download/apk/HorusSec-Mobile.apk", "0".repeat(64), "تجربة: شاشة التحديث")
         }
         if (i != null && i.getBooleanExtra("horus_open_result", false)) {

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="navy">#FF0D1226</color>
-    <color name="navy_dark">#FF090D1C</color>
-    <color name="gold">#FFE8B23A</color>
+    <color name="navy">#FF0B1020</color>
+    <color name="navy_dark">#FF0E1528</color>
+    <color name="gold">#FFD4AF37</color>
 </resources>

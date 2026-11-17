@@ -10,7 +10,8 @@ adb shell settings put global window_animation_scale 0
 adb install -r app-debug.apk
 adb logcat -c
 adb shell am start -n $A
-shot 1-home 8
+shot 0-splash 1
+shot 1-home 7
 adb shell am start -n $A --ez horus_autoscan true
 shot 2-scanning 2
 shot 3-result 25
@@ -39,6 +40,10 @@ shot 12b-settings 3
 adb shell input swipe 160 560 160 80 300
 adb shell input swipe 160 560 160 80 300
 shot 12c-settings-2 2
+adb shell am start -n $A --es horus_screen tools
+shot 12d-tools 3
+adb shell am start -n $A --es horus_screen reports
+shot 12e-reports 3
 adb shell am start -n $A --es horus_lang ar --es horus_screen home --ez horus_fakeupdate true
 shot 12-home-update 3
 adb shell pm grant $P android.permission.POST_NOTIFICATIONS

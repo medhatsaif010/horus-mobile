@@ -56,12 +56,12 @@ object Actions {
 
     fun shareText(ctx: Context, text: String) {
         val i = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
-        try { ctx.startActivity(Intent.createChooser(i, "Horus Sec").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { }
+        try { ctx.startActivity(Intent.createChooser(i, "Horus Shield").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { }
     }
 
     fun summary(r: ScanResult, d: DeviceData?): String = buildString {
         val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
-        appendLine("Horus Sec Mobile — ${L.t("تقرير فحص الموبايل", "Phone scan report")}")
+        appendLine("Horus Shield — ${L.t("تقرير فحص الموبايل", "Phone scan report")}")
         appendLine("${L.t("الوقت", "Time")}: ${fmt.format(Date(r.atMillis))}")
         if (d != null) appendLine("${L.t("الموبايل", "Phone")}: ${d.maker} ${d.model}, Android ${d.release}, ${L.t("تحديث أمني", "patch")} ${d.patch}")
         appendLine("${L.t("رقم الأمان", "Security score")}: ${r.score}/100 (${r.grade})")

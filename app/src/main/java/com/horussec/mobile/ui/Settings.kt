@@ -7,22 +7,12 @@ package com.horussec.mobile.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -35,109 +25,82 @@ import com.horussec.mobile.BuildConfig
 import com.horussec.mobile.DeepScan
 import com.horussec.mobile.L
 import com.horussec.mobile.Prefs
+import com.horussec.mobile.R
 import com.horussec.mobile.Screen
-import com.horussec.mobile.SealWidget
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 private val stampS = SimpleDateFormat("yyyy-MM-dd  HH:mm", Locale.US)
 
-@Composable
-private fun Heading(text: String) {
-    Spacer(Modifier.height(18.dp))
-    Text(text, color = C.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-    Spacer(Modifier.height(4.dp))
-}
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen() = TabScreen(Tab.SETTINGS) {
     val ctx = LocalContext.current
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> App.notifyAllowed = ok }
-    var pinMsg by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    var rootOpen by rememberSaveable { mutableStateOf(App.rootOn || App.rootDetected) }
+    fun openNotifSettings() {
+        try { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { }
+    }
     Column(Modifier.fillMaxSize()) {
         TopBar(L.t("الإعدادات", "Settings"), null)
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 6.dp)) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
-            // ---- automatic scan
-            Heading(L.t("الفحص التلقائي", "Automatic scan"))
-            Why(
-                L.t("فحص عميق في الخلفية، وتنبيه بس لو ظهر حاجة.", "A deep scan in the background, with an alert only if something shows up."),
-                L.t("Horus Sec يعمل فحص عميق لوحده، ويبعتلك تنبيه بس لو ظهرت علامة اختراق أو تطبيق جديد أخد صلاحيات خطيرة. أندرويد ممكن يأخّر الفحص شوية علشان البطارية.",
-                    "Horus Sec runs a deep scan on its own and only alerts you if a sign of compromise appears or a new app gets risky access. Android may delay it a little to save battery."),
-            )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AutoScan.choices.forEach { h ->
-                    Choice(autoLabel(h), App.autoHours == h) {
-                        App.setAuto(h)
-                        if (h > 0 && android.os.Build.VERSION.SDK_INT >= 33 && !AutoScan.notificationsAllowed(ctx)) askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)) {
+                ListRow(L.t("الفحص التلقائي", "Automatic scan"), if (App.autoHours > 0) autoLabel(App.autoHours) else L.t("مقفول", "Off")) {
+                    GoldSwitch(App.autoHours > 0) { on ->
+                        App.setAuto(if (on) 6 else 0)
+                        if (on && android.os.Build.VERSION.SDK_INT >= 33 && !AutoScan.notificationsAllowed(ctx)) askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS)
                     }
                 }
-            }
-            if (App.autoHours > 0) {
-                val last = Prefs.long("lastAutoScan")
-                Text(if (last > 0) L.t("آخر فحص تلقائي: ", "Last automatic scan: ") + stampS.format(Date(last)) else L.t("أول فحص تلقائي بعد ${App.autoHours} ساعات.", "First automatic scan in ${App.autoHours} hours."),
-                    color = C.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
-                if (!App.notifyAllowed) {
-                    Text(L.t("التنبيهات مقفولة، فمش هتعرف لو الفحص لقى حاجة.", "Notifications are off, so you will not hear about findings."), color = C.Warn, fontSize = 13.sp)
-                    ActionText(L.t("شغّل التنبيهات", "Turn on notifications")) {
-                        if (android.os.Build.VERSION.SDK_INT >= 33) askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                        else try { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { }
+                if (App.autoHours > 0) {
+                    FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AutoScan.choices.filter { it > 0 }.forEach { h -> Choice(autoLabel(h), App.autoHours == h) { App.setAuto(h) } }
+                    }
+                    val last = Prefs.long("lastAutoScan")
+                    Text(if (last > 0) L.t("آخر فحص تلقائي: ", "Last automatic scan: ") + stampS.format(Date(last)) else L.t("أول فحص تلقائي بعد ${App.autoHours} ساعات.", "First automatic scan in ${App.autoHours} hours."),
+                        color = C.Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+                    Hairline(C.Line.copy(alpha = 0.6f))
+                }
+                ListRow(L.t("تنبيهات الأمان", "Security alerts"), if (App.notifyAllowed) L.t("هنبعتلك تنبيه لو ظهرت حاجة", "You will be alerted if something shows up") else L.t("مقفولة: مش هتعرف لو الفحص لقى حاجة", "Off: you will not hear about findings"),
+                    subColor = if (App.notifyAllowed) C.Muted else C.Warn) {
+                    GoldSwitch(App.notifyAllowed) { on ->
+                        if (on && android.os.Build.VERSION.SDK_INT >= 33) askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS) else openNotifSettings()
                     }
                 }
+                ListRow(L.t("مراقبة استهلاك البيانات", "Data-usage monitoring"), if (App.usageAccess) L.t("مسموح", "Allowed") else L.t("محتاج إذن Usage access", "Needs Usage access"),
+                    subColor = if (App.usageAccess) C.Safe else C.GoldLight, onClick = { DeepScan.openUsageAccess(ctx) })
+                ListRow(L.t("أدوات الخبراء (Root)", "Expert tools (root)"), if (App.rootOn) L.t("شغال", "On") else if (App.rootDetected) L.t("متاح", "Available") else L.t("مقفول · الموبايل مش عليه Root", "Off · the phone is not rooted"),
+                    onClick = { rootOpen = !rootOpen }, last = !rootOpen)
+                if (rootOpen) Column(Modifier.padding(bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { RootSection() }
             }
-            Spacer(Modifier.height(10.dp)); Hairline()
 
-            // ---- data usage
-            Heading(L.t("استهلاك البيانات", "Data usage"))
-            if (App.usageAccess) Text(L.t("مسموح: الفحص العميق بيشوف التطبيقات المخفية اللي بتبعت بيانات كتير.", "Allowed: the deep scan spots hidden apps sending lots of data."), color = C.Safe, fontSize = 14.sp)
-            else {
+            HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)) {
+                ListRow(L.t("اللغة", "Language"), if (L.ar) "العربية" else "English", onClick = { App.setLang(!L.ar) })
+                ListRow(L.t("المظهر", "Appearance"), when (App.theme) { "light" -> L.t("فاتح", "Light"); "dark" -> L.t("داكن", "Dark"); else -> L.t("زي الموبايل", "Match phone") },
+                    onClick = { App.chooseTheme(when (App.theme) { "system" -> "dark"; "dark" -> "light"; else -> "system" }) }, last = true)
+            }
+
+            HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)) {
+                Text(L.t("خصوصيتك", "Your privacy"), color = C.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 Why(
-                    L.t("اسمح بيه علشان الفحص العميق يكشف اللي بيبعت صورك لبرّه.", "Allow it so the deep scan can spot apps sending your photos out."),
-                    L.t("Usage access بيدّي Horus Sec أرقام استهلاك النت لكل تطبيق بس، مش المحتوى. لو تطبيق مخفي بيرفع كمية كبيرة، ده ممكن يكون برنامج تجسس بيبعت صور أو تسجيلات.",
-                        "Usage access gives Horus Sec each app's data numbers only, never the content. A hidden app uploading a lot may be stalkerware sending photos or recordings."),
+                    L.t("الفحص بيتم على الموبايل، ومش بيبعت بياناتك لأي سيرفر.", "Scans run on the phone and send none of your data to any server."),
+                    L.t("Horus Shield مش بيمسح ولا بيغيّر حاجة لوحده، ومش بيقرا رسايلك ولا صورك. اللي بيخرج من الموبايل: تنزيل قاعدة التهديدات والتحديثات، ولما تفحص لينك بنطلب عنوان الصفحة بس ونسأل rdap.org عن عمر الدومين.",
+                        "Horus Shield never removes or changes anything on its own and never reads your messages or photos. What leaves the phone: the threat intel and app updates, and when you check a link, a header-only request and a domain-age lookup at rdap.org."),
                 )
-                ActionText(L.t("اسمح بـ Usage access", "Allow Usage access")) { DeepScan.openUsageAccess(ctx) }
             }
-            Spacer(Modifier.height(10.dp)); Hairline()
 
-            // ---- appearance
-            Heading(L.t("الشكل", "Appearance"))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Choice(L.t("زي الموبايل", "Match phone"), App.theme == "system") { App.chooseTheme("system") }
-                Choice(L.t("غامق", "Dark"), App.theme == "dark") { App.chooseTheme("dark") }
-                Choice(L.t("فاتح", "Light"), App.theme == "light") { App.chooseTheme("light") }
+            HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)) {
+                ListRow(L.t("حول التطبيق والتحديثات", "About and updates"), onClick = { App.screen = Screen.ABOUT })
+                ListRow(L.t("الدعم والتواصل مع المطوّر", "Support and contact"), "LinkedIn", onClick = {
+                    try { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(Owner.linkedin)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { }
+                }, last = true)
             }
-            Spacer(Modifier.height(8.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Choice("عربي", L.ar) { App.setLang(true) }
-                Choice("English", !L.ar) { App.setLang(false) }
-            }
-            Spacer(Modifier.height(4.dp))
-            ActionText(L.t("حط الختم على الشاشة الرئيسية للموبايل", "Put the seal on your home screen")) {
-                if (!SealWidget.requestPin(ctx)) pinMsg = L.t("اضغط مطوّل على الشاشة الرئيسية، اختار Widgets، ودوّر على Horus Sec.", "Long-press your home screen, choose Widgets, and find Horus Sec.")
-            }
-            if (pinMsg.isNotEmpty()) Text(pinMsg, color = C.Muted, fontSize = 13.sp)
-            Spacer(Modifier.height(10.dp)); Hairline()
 
-            // ---- expert tools
-            Heading(L.t("أدوات الخبراء", "Expert tools"))
-            RootSection()
-            Spacer(Modifier.height(10.dp)); Hairline()
-
-            // ---- privacy and about
-            Heading(L.t("خصوصيتك", "Your privacy"))
-            Why(
-                L.t("الفحص بيتم على الموبايل، ومش بيبعت بياناتك لأي سيرفر.", "Scans run on the phone and send none of your data to any server."),
-                L.t("Horus Sec مش بيمسح ولا بيغيّر حاجة لوحده، ومش بيقرا رسايلك ولا صورك. اللي بيخرج من الموبايل: تنزيل قاعدة التهديدات والتحديثات، ولما تفحص لينك بنطلب عنوان الصفحة بس ونسأل rdap.org عن عمر الدومين.",
-                    "Horus Sec never removes or changes anything on its own and never reads your messages or photos. What leaves the phone: the threat intel and app updates, and when you check a link, a header-only request and a domain-age lookup at rdap.org."),
-            )
-            Spacer(Modifier.height(10.dp)); Hairline()
-            ActionText(L.t("عن البرنامج والتحديثات", "About and updates")) { App.screen = Screen.ABOUT }
-            Hairline()
-            Text("Horus Sec  ·  v" + BuildConfig.VERSION_NAME + "  ·  " + L.t("قاعدة التهديدات: ", "Threat intel: ") + (App.intel?.date?.ifEmpty { "—" } ?: "…"),
-                color = C.Dim, fontSize = 12.sp, modifier = Modifier.padding(vertical = 16.dp))
+            Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Decor(R.drawable.art_lotus, Modifier.width(44.dp), alpha = 0.6f)
+                Text("HORUS SHIELD · V" + BuildConfig.VERSION_NAME + " · MEDHAT SAIF", color = C.Dim, fontFamily = Montserrat, fontWeight = FontWeight.Medium, fontSize = 11.sp, letterSpacing = 2.sp, style = Ltr)
+            }
         }
     }
 }
@@ -145,7 +108,7 @@ fun SettingsScreen() = TabScreen(Tab.SETTINGS) {
 @Composable
 private fun RootSection() {
     val ctx = LocalContext.current
-    if (App.rootMsg.isNotEmpty() && App.screen == Screen.SETTINGS) Text(App.rootMsg, color = C.Gold, fontSize = 13.sp)
+    if (App.rootMsg.isNotEmpty() && App.screen == Screen.SETTINGS) Text(App.rootMsg, color = C.GoldLight, fontSize = 13.sp)
     if (!App.rootDetected && !App.rootOn) {
         Why(
             L.t("وضع Root مقفول لأن الموبايل مش عليه Root، وده الأفضل لأمانك.", "Root mode is off because the phone is not rooted. That is safer for you."),
@@ -158,15 +121,15 @@ private fun RootSection() {
     if (!App.rootOn) {
         Why(
             L.t("الموبايل عليه Root. الوضع ده بيخلّي الفحص العميق يشوف أعمق.", "The phone is rooted. This mode lets the deep scan look deeper."),
-            L.t("لو سمحت لـ Horus Sec بالصلاحية، الفحص العميق هيشوف الاتصالات الشغالة لكل تطبيق ويقارنها بسيرفرات التحكم المعروفة، والبرامج الشغالة، وموديولات Magisk، وسكربتات الإقلاع، وملف hosts، وتحويل الترافيك. Horus Sec بيستخدمه للقراءة، ومش بيغيّر حاجة غير بموافقتك على كل خطوة.",
-                "With root, the deep scan checks every app's live connections against known command servers, running programs, Magisk modules, boot scripts, the hosts file and traffic redirection. Horus Sec uses it to read, and changes nothing without your consent for each step."),
+            L.t("لو سمحت لـ Horus Shield بالصلاحية، الفحص العميق هيشوف الاتصالات الشغالة لكل تطبيق ويقارنها بسيرفرات التحكم المعروفة، والبرامج الشغالة، وموديولات Magisk، وسكربتات الإقلاع، وملف hosts، وتحويل الترافيك. Horus Shield بيستخدمه للقراءة، ومش بيغيّر حاجة غير بموافقتك على كل خطوة.",
+                "With root, the deep scan checks every app's live connections against known command servers, running programs, Magisk modules, boot scripts, the hosts file and traffic redirection. Horus Shield uses it to read, and changes nothing without your consent for each step."),
         )
         Secondary(if (App.rootBusy) L.t("مستني موافقة Magisk...", "Waiting for Magisk...") else L.t("فعّل وضع Root", "Turn on root mode"), { App.enableRoot() }, Modifier.fillMaxWidth(), enabled = !App.rootBusy)
     } else {
         Text(L.t("شغال: الفحص العميق والفحص التلقائي بيستخدموه.", "On: deep and automatic scans use it."), color = C.Safe, fontSize = 14.sp)
         ActionText(if (App.rootBusy) L.t("بيجمع...", "Collecting...") else L.t("صدّر سجلات النظام كدليل", "Export system logs as evidence")) { if (!App.rootBusy) App.exportEvidence(ctx) }
         if (App.rootUndo.isNotEmpty()) {
-            Text(L.t("اللي Horus Sec عطّله أو قطع عنه النت:", "Apps Horus Sec disabled or cut off:"), color = C.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(L.t("اللي Horus Shield عطّله أو قطع عنه النت:", "Apps Horus Shield disabled or cut off:"), color = C.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             App.rootUndo.forEach { u ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     Text((if (u.kind == "block") L.t("نت مقطوع: ", "No internet: ") else L.t("متعطّل: ", "Disabled: ")) + u.pkg, color = C.Text2, fontSize = 13.sp, modifier = Modifier.weight(1f))
@@ -177,4 +140,3 @@ private fun RootSection() {
         ActionText(L.t("اقفل وضع Root", "Turn off root mode"), C.Muted) { App.disableRoot() }
     }
 }
-
