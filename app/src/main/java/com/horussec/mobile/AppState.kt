@@ -61,7 +61,7 @@ object App {
     /** protection score of the scan before the one on screen */
     var scoreBefore by mutableStateOf<Int?>(null)
 
-    fun setTheme(t: String) { theme = t; Prefs.put("theme", t) }
+    fun chooseTheme(t: String) { theme = t; Prefs.put("theme", t) }
 
     fun init(c: Context) {
         ctx = c.applicationContext

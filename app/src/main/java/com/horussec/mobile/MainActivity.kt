@@ -101,7 +101,7 @@ class MainActivity : ComponentActivity() {
         if (i != null && BuildConfig.DEBUG) {
             // test hooks used by the automated smoke test (debug builds only)
             i.getStringExtra("horus_lang")?.let { App.setLang(it == "ar") }
-            i.getStringExtra("horus_theme")?.let { App.setTheme(it) }
+            i.getStringExtra("horus_theme")?.let { App.chooseTheme(it) }
             when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME; "legal" -> App.screen = Screen.LEGAL; "settings" -> App.screen = Screen.SETTINGS; "link" -> App.screen = Screen.LINK }
             if (i.getBooleanExtra("horus_widgetshot", false)) try {
                 java.io.FileOutputStream(java.io.File(cacheDir, "widget.png")).use { SealWidget.bitmap(this, 420).compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }

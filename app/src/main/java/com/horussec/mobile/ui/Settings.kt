@@ -105,9 +105,9 @@ fun SettingsScreen() = TabScreen(Tab.SETTINGS) {
             // ---- appearance
             Heading(L.t("الشكل", "Appearance"))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Choice(L.t("زي الموبايل", "Match phone"), App.theme == "system") { App.setTheme("system") }
-                Choice(L.t("غامق", "Dark"), App.theme == "dark") { App.setTheme("dark") }
-                Choice(L.t("فاتح", "Light"), App.theme == "light") { App.setTheme("light") }
+                Choice(L.t("زي الموبايل", "Match phone"), App.theme == "system") { App.chooseTheme("system") }
+                Choice(L.t("غامق", "Dark"), App.theme == "dark") { App.chooseTheme("dark") }
+                Choice(L.t("فاتح", "Light"), App.theme == "light") { App.chooseTheme("light") }
             }
             Spacer(Modifier.height(8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
