@@ -68,7 +68,7 @@ object App {
     fun init(c: Context) {
         ctx = c.applicationContext
         Prefs.init(ctx)
-        L.ar = (Prefs.str("lang") ?: "ar") == "ar"
+        L.load()
         theme = Prefs.str("theme") ?: "dark"
         lastScore = Prefs.str("lastScore")?.toIntOrNull()
         lastScanAt = Prefs.long("lastScanAt")
@@ -84,14 +84,14 @@ object App {
             if (age >= 2 && System.currentTimeMillis() - checked > 12 * 3600_000L) updateIntel(quiet = true)
         }
         maybeCheckUpdate()
+        UpdateCheck.schedule(ctx)
     }
 
-    fun setLang(ar: Boolean) {
-        L.ar = ar
-        Prefs.put("lang", if (ar) "ar" else "en")
+    fun setLang(code: String) {
+        L.lang = if (code in listOf("en", "ar", "eg")) code else "en"
+        Prefs.put("lang", L.lang)
         val d = device; val i = intel
         if (d != null && i != null) result = Analyzer.analyze(d, i)
-        scope.launch(Dispatchers.IO) { SealWidget.update(ctx) }
     }
 
     fun refreshFromPrefs() {
@@ -124,7 +124,6 @@ object App {
             lastVerdict = r.verdict; Prefs.put("lastVerdict", r.verdict)
             scoreBefore = History.list().firstOrNull()?.score
             History.add(r, auto = false)
-            withContext(Dispatchers.IO) { SealWidget.update(ctx) }
             justScanned = true
             screen = Screen.RESULT
         }
@@ -151,10 +150,10 @@ object App {
             val err = withContext(Dispatchers.IO) { Intel.update(ctx) }
             intel = withContext(Dispatchers.IO) { Intel.get(ctx) }
             if (!quiet) intelMsg = when {
-                err == "badsig" -> L.t("الملف اللي نزل توقيعه مش سليم، فاترفض.", "The downloaded file failed the signature check and was rejected.")
-                err != null -> L.t("مقدرناش نوصل لسيرفر التحديث. اتأكد من النت.", "Could not reach the update server. Check your connection.")
-                (intel?.generatedAt ?: "") == before -> L.t("قاعدة التهديدات محدّثة بالفعل.", "Threat intel is already up to date.")
-                else -> L.t("اتحدّثت قاعدة التهديدات.", "Threat intel updated.")
+                err == "badsig" -> L.t("توقيع الملف الذي نُزّل غير سليم، لذا رُفض.", "الملف اللي نزل توقيعه مش سليم، فاترفض.", "The downloaded file failed the signature check and was rejected.")
+                err != null -> L.t("تعذّر الوصول إلى خادم التحديث. تحقق من اتصالك بالإنترنت.", "مقدرناش نوصل لسيرفر التحديث. اتأكد من النت.", "Could not reach the update server. Check your connection.")
+                (intel?.generatedAt ?: "") == before -> L.t("قاعدة التهديدات محدّثة بالفعل.", "قاعدة التهديدات محدّثة بالفعل.", "Threat intel is already up to date.")
+                else -> L.t("حُدّثت قاعدة التهديدات.", "اتحدّثت قاعدة التهديدات.", "Threat intel updated.")
             }
             intelBusy = false
         }
@@ -173,8 +172,10 @@ object App {
             val r = withContext(Dispatchers.IO) { try { Result.success(Updater.check()) } catch (e: Exception) { Result.failure(e) } }
             r.onSuccess { info ->
                 update = info
-                if (!quiet && info == null) updateMsg = L.t("عندك آخر نسخة.", "You have the latest version.")
-            }.onFailure { if (!quiet) updateMsg = L.t("مقدرناش نوصل لسيرفر التحديث. اتأكد من النت.", "Could not reach the update server. Check your connection.") }
+                // seen in the app already, so the background check will not notify for it again
+                if (info != null) Prefs.put("notifiedUpdate", info.code.toString())
+                if (!quiet && info == null) updateMsg = L.t("لديك أحدث نسخة.", "عندك آخر نسخة.", "You have the latest version.")
+            }.onFailure { if (!quiet) updateMsg = L.t("تعذّر الوصول إلى خادم التحديث. تحقق من اتصالك بالإنترنت.", "مقدرناش نوصل لسيرفر التحديث. اتأكد من النت.", "Could not reach the update server. Check your connection.") }
             updateBusy = false
         }
     }
@@ -192,10 +193,10 @@ object App {
             }
             updateBusy = false; updateProgress = -1
             r.onSuccess { f ->
-                try { Updater.install(ctx, f) } catch (e: Exception) { updateMsg = L.t("مقدرناش نفتح شاشة التسطيب.", "Could not open the installer.") }
+                try { Updater.install(ctx, f) } catch (e: Exception) { updateMsg = L.t("تعذّر فتح شاشة التثبيت.", "مقدرناش نفتح شاشة التسطيب.", "Could not open the installer.") }
             }.onFailure { e ->
-                updateMsg = if (e.message == "sha") L.t("الملف اللي نزل مش مطابق للنسخة الرسمية، فاترفض ومتسطّبش.", "The download did not match the official build, so it was rejected and not installed.")
-                else L.t("التنزيل موقفش صح. جرّب تاني.", "The download did not finish. Try again.")
+                updateMsg = if (e.message == "sha") L.t("الملف الذي نُزّل لا يطابق النسخة الرسمية، لذا رُفض ولم يُثبَّت.", "الملف اللي نزل مش مطابق للنسخة الرسمية، فاترفض ومتسطّبش.", "The download did not match the official build, so it was rejected and not installed.")
+                else L.t("لم يكتمل التنزيل بشكل صحيح. حاول مرة أخرى.", "التنزيل موقفش صح. جرّب تاني.", "The download did not finish. Try again.")
             }
         }
     }
@@ -206,8 +207,8 @@ object App {
         rootBusy = true; rootMsg = ""
         scope.launch {
             val ok = withContext(Dispatchers.IO) { Su.granted() }
-            if (ok) { Prefs.put("rootMode", "1"); rootOn = true; rootMsg = L.t("وضع Root اتفعّل. الفحص العميق الجاي هيستخدمه.", "Root mode is on. The next deep scan will use it.") }
-            else rootMsg = L.t("صلاحية Root اترفضت أو مش موجودة. لو عندك Magisk، افتحه واسمح لـ Horus Shield من Superuser.", "Root access was refused or is not available. If you use Magisk, open it and allow Horus Shield under Superuser.")
+            if (ok) { Prefs.put("rootMode", "1"); rootOn = true; rootMsg = L.t("فُعّل وضع Root، وسيستخدمه الفحص العميق التالي.", "وضع Root اتفعّل. الفحص العميق الجاي هيستخدمه.", "Root mode is on. The next deep scan will use it.") }
+            else rootMsg = L.t("رُفضت صلاحية Root أو أنها غير موجودة. إن كان لديك Magisk، فافتحه واسمح لـ Horus Shield من Superuser.", "صلاحية Root اترفضت أو مش موجودة. لو عندك Magisk، افتحه واسمح لـ Horus Shield من Superuser.", "Root access was refused or is not available. If you use Magisk, open it and allow Horus Shield under Superuser.")
             rootBusy = false
         }
     }
@@ -231,7 +232,7 @@ object App {
                 }
             }
             rootUndo = RootScan.undoList()
-            rootMsg = if (ok) L.t("اتنفّذ على $pkg.", "Done for $pkg.") else L.t("متنفّذش. اتأكد إن Horus Shield لسه مسموحله بـ Root.", "It did not work. Make sure Horus Shield still has root access.")
+            rootMsg = if (ok) L.t("نُفّذ على $pkg.", "اتنفّذ على $pkg.", "Done for $pkg.") else L.t("لم يُنفَّذ. تأكد من أن Horus Shield ما زال مسموحًا له بصلاحية Root.", "متنفّذش. اتأكد إن Horus Shield لسه مسموحله بـ Root.", "It did not work. Make sure Horus Shield still has root access.")
             rootBusy = false
         }
     }
@@ -242,19 +243,19 @@ object App {
         scope.launch {
             val ok = withContext(Dispatchers.IO) { RootScan.undo(u.kind, u.pkg, u.uid) }
             rootUndo = RootScan.undoList()
-            rootMsg = if (ok) L.t("اترجع: ${u.pkg}", "Restored: ${u.pkg}") else L.t("مقدرناش نرجّعه.", "Could not restore it.")
+            rootMsg = if (ok) L.t("أُعيد: ${u.pkg}", "اترجع: ${u.pkg}", "Restored: ${u.pkg}") else L.t("تعذّرت الإعادة.", "مقدرناش نرجّعه.", "Could not restore it.")
             rootBusy = false
         }
     }
 
     fun exportEvidence(c: Context) {
         if (rootBusy) return
-        rootBusy = true; rootMsg = L.t("بيجمع السجلات...", "Collecting logs...")
+        rootBusy = true; rootMsg = L.t("جارٍ جمع السجلات...", "بيجمع السجلات...", "Collecting logs...")
         scope.launch {
             val summary = result?.let { Actions.summary(it, device) } ?: ""
             val i = withContext(Dispatchers.IO) { try { RootScan.exportEvidence(ctx, summary) } catch (e: Exception) { null } }
             rootBusy = false
-            if (i == null) rootMsg = L.t("مقدرناش نجمع السجلات.", "Could not collect the logs.")
+            if (i == null) rootMsg = L.t("تعذّر جمع السجلات.", "مقدرناش نجمع السجلات.", "Could not collect the logs.")
             else { rootMsg = ""; try { c.startActivity(i) } catch (e: Exception) { } }
         }
     }

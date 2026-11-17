@@ -125,7 +125,7 @@ object UrlCheck {
         val userInfo = try { URI(u.replace(" ", "%20")).rawUserInfo } catch (e: Exception) { null }
 
         val signals = ArrayList<Signal>()
-        fun sig(level: String, ar: String, en: String) = signals.add(Signal(level, L.t(ar, en)))
+        fun sig(level: String, msa: String, eg: String, en: String) = signals.add(Signal(level, L.t(msa, eg, en)))
 
         val chain = arrayListOf(first.toString())
         var final = first
@@ -155,53 +155,53 @@ object UrlCheck {
             val tld = h.substringAfterLast('.')
 
             intel.c2Domains.entries.firstOrNull { h == it.key || h.endsWith("." + it.key) }?.let {
-                sig("bad", "الدومين $h متسجل كسيرفر تحكم لبرمجية خبيثة (${it.value}).", "The domain $h is listed as a malware command server (${it.value}).")
+                sig("bad", "النطاق $h مسجّل كخادم تحكم لبرمجية خبيثة (${it.value}).", "الدومين $h متسجل كسيرفر تحكم لبرمجية خبيثة (${it.value}).", "The domain $h is listed as a malware command server (${it.value}).")
             }
-            if (isIp) intel.c2Ips[h]?.let { sig("bad", "العنوان $h متسجل كسيرفر تحكم لبرمجية خبيثة ($it).", "The address $h is listed as a malware command server ($it).") }
+            if (isIp) intel.c2Ips[h]?.let { sig("bad", "العنوان $h مسجّل كخادم تحكم لبرمجية خبيثة ($it).", "العنوان $h متسجل كسيرفر تحكم لبرمجية خبيثة ($it).", "The address $h is listed as a malware command server ($it).") }
             if (intel.malwareUrls.isNotEmpty()) {
                 val bare = link.replace(Regex("^https?://", RegexOption.IGNORE_CASE), "").trimEnd('/').lowercase()
-                if (intel.malwareUrls.contains(bare)) sig("bad", "اللينك ده نفسه متسجل في URLhaus إنه بيوزّع برمجيات خبيثة.", "This exact link is listed in URLhaus as distributing malware.")
+                if (intel.malwareUrls.contains(bare)) sig("bad", "هذا الرابط نفسه مسجّل في URLhaus كموزّع لبرمجيات خبيثة.", "اللينك ده نفسه متسجل في URLhaus إنه بيوزّع برمجيات خبيثة.", "This exact link is listed in URLhaus as distributing malware.")
                 else if (!under(h, sharedHosts)) {
                     val n = intel.malwareUrls.count { it == h || it.startsWith("$h/") || it.startsWith("$h:") }
-                    if (n > 0) sig("bad", "الموقع $h عليه $n لينك متسجل في URLhaus إنه بيوزّع برمجيات خبيثة.", "The site $h has $n links listed in URLhaus as distributing malware.")
+                    if (n > 0) sig("bad", "على الموقع $h عدد $n من الروابط المسجّلة في URLhaus كموزّعة لبرمجيات خبيثة.", "الموقع $h عليه $n لينك متسجل في URLhaus إنه بيوزّع برمجيات خبيثة.", "The site $h has $n links listed in URLhaus as distributing malware.")
                 }
             }
-            if (isIp) sig("warn", "اللينك رايح لعنوان IP مباشر ($h) مش لاسم موقع. المواقع المحترمة مش بتعمل كده.", "The link points to a bare IP address ($h), not a site name. Legitimate sites do not do this.")
+            if (isIp) sig("warn", "يتجه الرابط إلى عنوان IP مباشر ($h) لا إلى اسم موقع، والمواقع الموثوقة لا تفعل ذلك.", "اللينك رايح لعنوان IP مباشر ($h) مش لاسم موقع. المواقع المحترمة مش بتعمل كده.", "The link points to a bare IP address ($h), not a site name. Legitimate sites do not do this.")
             if (h.split('.').any { it.startsWith("xn--") }) {
                 val uni = try { IDN.toUnicode(h) } catch (e: Exception) { h }
-                sig("warn", "اسم الموقع فيه حروف غير لاتينية ممكن تتشبّه بحروف إنجليزي: $uni ($h)", "The site name uses non-Latin letters that can look like English ones: $uni ($h)")
+                sig("warn", "يحتوي اسم الموقع على حروف غير لاتينية قد تشبه الحروف الإنجليزية: $uni ($h)", "اسم الموقع فيه حروف غير لاتينية ممكن تتشبّه بحروف إنجليزي: $uni ($h)", "The site name uses non-Latin letters that can look like English ones: $uni ($h)")
             }
-            if (link == chain.first() && !userInfo.isNullOrEmpty()) sig("warn", "اللينك فيه @ قبل اسم الموقع. الجزء اللي قبل @ بيتكتب علشان يخدعك، والموقع الحقيقي هو $h.", "The link has an @ before the site name. The part before @ is there to fool you; the real site is $h.")
-            if (!isIp && (h.split('.').size >= 6 || h.length > 60)) sig("warn", "اسم الموقع طويل ومتفرّع بشكل مش طبيعي. الدومين الحقيقي هو $reg.", "The site name is unusually long and nested. The real domain is $reg.")
-            if (tld in badTlds) sig("note", "الامتداد .$tld رخيص وبيتستخدم كتير في النصب، وده لوحده مش دليل.", "The .$tld ending is cheap and common in scams, though not proof on its own.")
-            if (under(h, shorteners)) sig("note", "لينك مختصر ($h) مخبّي العنوان الحقيقي.", "A short link ($h) hides the real address.")
-            if (!isIp && under(h, freeHosts)) sig("note", "الصفحة على استضافة مجانية ($reg). أي حد يقدر يعمل صفحة عليها في دقايق.", "The page is on free hosting ($reg). Anyone can set one up in minutes.")
-            if (x.port != -1 && x.port != x.defaultPort) sig("note", "اللينك على بورت غير المعتاد (${x.port}).", "The link uses an unusual port (${x.port}).")
+            if (link == chain.first() && !userInfo.isNullOrEmpty()) sig("warn", "يحتوي الرابط على @ قبل اسم الموقع. الجزء الذي قبل @ مكتوب لخداعك، والموقع الحقيقي هو $h.", "اللينك فيه @ قبل اسم الموقع. الجزء اللي قبل @ بيتكتب علشان يخدعك، والموقع الحقيقي هو $h.", "The link has an @ before the site name. The part before @ is there to fool you; the real site is $h.")
+            if (!isIp && (h.split('.').size >= 6 || h.length > 60)) sig("warn", "اسم الموقع طويل ومتفرّع على نحو غير طبيعي، والنطاق الحقيقي هو $reg.", "اسم الموقع طويل ومتفرّع بشكل مش طبيعي. الدومين الحقيقي هو $reg.", "The site name is unusually long and nested. The real domain is $reg.")
+            if (tld in badTlds) sig("note", "الامتداد .$tld رخيص ويُستخدم كثيرًا في الاحتيال، لكنه وحده ليس دليلًا.", "الامتداد .$tld رخيص وبيتستخدم كتير في النصب، وده لوحده مش دليل.", "The .$tld ending is cheap and common in scams, though not proof on its own.")
+            if (under(h, shorteners)) sig("note", "رابط مختصر ($h) يُخفي العنوان الحقيقي.", "لينك مختصر ($h) مخبّي العنوان الحقيقي.", "A short link ($h) hides the real address.")
+            if (!isIp && under(h, freeHosts)) sig("note", "الصفحة على استضافة مجانية ($reg)، ويستطيع أي شخص إنشاء صفحة عليها في دقائق.", "الصفحة على استضافة مجانية ($reg). أي حد يقدر يعمل صفحة عليها في دقايق.", "The page is on free hosting ($reg). Anyone can set one up in minutes.")
+            if (x.port != -1 && x.port != x.defaultPort) sig("note", "يستخدم الرابط منفذًا غير معتاد (${x.port}).", "اللينك على بورت غير المعتاد (${x.port}).", "The link uses an unusual port (${x.port}).")
             if (!isIp) brands.firstOrNull { it.rx.containsMatchIn(h) && !under(h, it.ok) }?.let { br ->
                 brandHit = true
-                sig("warn", "الاسم فيه «${br.n}» بس الموقع مش على الدومين الرسمي اللي نعرفه (${br.ok.joinToString("، ")}). الدومين الفعلي: $reg.",
+                sig("warn", "يحتوي الاسم على «${br.n}» لكن الموقع ليس على النطاق الرسمي الذي نعرفه (${br.ok.joinToString("، ")}). النطاق الفعلي: $reg.", "الاسم فيه «${br.n}» بس الموقع مش على الدومين الرسمي اللي نعرفه (${br.ok.joinToString("، ")}). الدومين الفعلي: $reg.",
                     "The name contains «${br.n}» but the site is not on the official domain we know (${br.ok.joinToString(", ")}). Actual domain: $reg.")
             }
         }
         val fh = final.host.lowercase()
         val fIp = ipv4.matches(fh) || fh.contains(':')
         val freg = if (fIp) fh else registrable(fh)
-        if (final.protocol == "http") sig("note", "الصفحة من غير تشفير (http). متكتبش فيها باسورد ولا بيانات كارت.", "The page is not encrypted (http). Do not type a password or card details into it.")
+        if (final.protocol == "http") sig("note", "الصفحة غير مشفّرة (http)، فلا تكتب فيها كلمة مرور ولا بيانات بطاقة.", "الصفحة من غير تشفير (http). متكتبش فيها باسورد ولا بيانات كارت.", "The page is not encrypted (http). Do not type a password or card details into it.")
         Regex("\\.(apk|exe|scr|msi|bat|cmd|js|vbs|hta|lnk|iso|img|jar|ps1|dmg|pkg)$", RegexOption.IGNORE_CASE).find(final.path)?.let { m ->
             val ext = m.groupValues[1].lowercase()
-            if (ext == "apk") sig("warn", "اللينك بينزّل تطبيق أندرويد (APK) من برّه المتجر. البنوك والمحافظ مش بتبعت تطبيقاتها كده.", "The link downloads an Android app (APK) from outside the store. Banks and wallets never send their apps this way.")
-            else sig("warn", "اللينك بينزّل ملف برنامج (.$ext) مش صفحة.", "The link downloads a program file (.$ext), not a page.")
+            if (ext == "apk") sig("warn", "ينزّل الرابط تطبيق أندرويد (APK) من خارج المتجر، والبنوك والمحافظ لا ترسل تطبيقاتها بهذه الطريقة.", "اللينك بينزّل تطبيق أندرويد (APK) من برّه المتجر. البنوك والمحافظ مش بتبعت تطبيقاتها كده.", "The link downloads an Android app (APK) from outside the store. Banks and wallets never send their apps this way.")
+            else sig("warn", "ينزّل الرابط ملف برنامج (.$ext) لا صفحة.", "اللينك بينزّل ملف برنامج (.$ext) مش صفحة.", "The link downloads a program file (.$ext), not a page.")
         }
-        if (chain.size > 1 && registrable(first.host.lowercase()) != freg) sig("note", "اللينك بيحوّلك لموقع تاني: $fh", "The link redirects you to another site: $fh")
-        if (chain.size >= 4) sig("warn", "اللينك بيعدّي على ${chain.size - 1} تحويلات قبل ما يوصل، وده أسلوب لتخبية الوجهة.", "The link goes through ${chain.size - 1} redirects, a way to hide where it ends up.")
-        if (reach == "unreachable") sig("note", "الموقع مردّش. ممكن يكون اتقفل، وصفحات النصب بتتقفل بسرعة.", "The site did not answer. It may be down; scam pages are taken down quickly.")
+        if (chain.size > 1 && registrable(first.host.lowercase()) != freg) sig("note", "يحوّلك الرابط إلى موقع آخر: $fh", "اللينك بيحوّلك لموقع تاني: $fh", "The link redirects you to another site: $fh")
+        if (chain.size >= 4) sig("warn", "يمر الرابط بـ ${chain.size - 1} تحويلات قبل أن يصل، وهذا أسلوب لإخفاء الوجهة.", "اللينك بيعدّي على ${chain.size - 1} تحويلات قبل ما يوصل، وده أسلوب لتخبية الوجهة.", "The link goes through ${chain.size - 1} redirects, a way to hide where it ends up.")
+        if (reach == "unreachable") sig("note", "لم يستجب الموقع. ربما أُغلق، فصفحات الاحتيال تُغلق بسرعة.", "الموقع مردّش. ممكن يكون اتقفل، وصفحات النصب بتتقفل بسرعة.", "The site did not answer. It may be down; scam pages are taken down quickly.")
 
         var age: Int? = null
         if (online && !fIp) {
             age = domainAge(freg)
             if (age != null) {
-                if (age < 30) sig("warn", "الدومين $freg اتسجّل من $age يوم بس. مواقع النصب بتبقى جديدة جدًا.", "The domain $freg was registered only $age days ago. Scam sites are usually brand new.")
-                else if (age < 180) sig("note", "الدومين $freg عمره $age يوم (أقل من 6 شهور).", "The domain $freg is $age days old (under 6 months).")
+                if (age < 30) sig("warn", "سُجّل النطاق $freg منذ $age يوم فقط، ومواقع الاحتيال عادةً حديثة جدًا.", "الدومين $freg اتسجّل من $age يوم بس. مواقع النصب بتبقى جديدة جدًا.", "The domain $freg was registered only $age days ago. Scam sites are usually brand new.")
+                else if (age < 180) sig("note", "عمر النطاق $freg هو $age يوم (أقل من 6 أشهر).", "الدومين $freg عمره $age يوم (أقل من 6 شهور).", "The domain $freg is $age days old (under 6 months).")
             }
         }
 

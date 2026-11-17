@@ -17,20 +17,20 @@ import java.util.Locale
 /** Opens the right Android settings page. Horus never changes settings itself: the user does. */
 object Actions {
     fun label(f: Fix): String = when (f) {
-        Fix.APP_SETTINGS -> L.t("إعدادات التطبيق", "App settings")
-        Fix.UNINSTALL -> L.t("امسح التطبيق", "Uninstall")
-        Fix.ACCESSIBILITY -> L.t("افتح Accessibility", "Open Accessibility")
-        Fix.SECURITY -> L.t("افتح إعدادات الأمان", "Open security settings")
-        Fix.NOTIFICATIONS -> L.t("افتح قراية الإشعارات", "Open notification access")
-        Fix.UPDATE -> L.t("افتح تحديث النظام", "Open system update")
-        Fix.LOCK -> L.t("حط قفل شاشة", "Set a screen lock")
-        Fix.DEVELOPER -> L.t("افتح خيارات المطورين", "Open developer options")
-        Fix.NETWORK -> L.t("افتح إعدادات الشبكة", "Open network settings")
-        Fix.VPN -> L.t("افتح إعدادات VPN", "Open VPN settings")
-        Fix.UNKNOWN_SOURCES -> L.t("افتح تسطيب التطبيقات المجهولة", "Open install unknown apps")
-        Fix.ROOT_STOP -> L.t("وقّفه دلوقتي (Root)", "Stop it now (root)")
-        Fix.ROOT_DISABLE -> L.t("عطّله (Root)", "Disable it (root)")
-        Fix.ROOT_BLOCKNET -> L.t("اقطع عنه النت (Root)", "Cut its internet (root)")
+        Fix.APP_SETTINGS -> L.t("إعدادات التطبيق", "إعدادات التطبيق", "App settings")
+        Fix.UNINSTALL -> L.t("إزالة التطبيق", "امسح التطبيق", "Uninstall")
+        Fix.ACCESSIBILITY -> L.t("فتح إعدادات Accessibility", "افتح Accessibility", "Open Accessibility")
+        Fix.SECURITY -> L.t("فتح إعدادات الأمان", "افتح إعدادات الأمان", "Open security settings")
+        Fix.NOTIFICATIONS -> L.t("فتح إعدادات الوصول إلى الإشعارات", "افتح قراية الإشعارات", "Open notification access")
+        Fix.UPDATE -> L.t("فتح تحديث النظام", "افتح تحديث النظام", "Open system update")
+        Fix.LOCK -> L.t("ضبط قفل الشاشة", "حط قفل شاشة", "Set a screen lock")
+        Fix.DEVELOPER -> L.t("فتح خيارات المطورين", "افتح خيارات المطورين", "Open developer options")
+        Fix.NETWORK -> L.t("فتح إعدادات الشبكة", "افتح إعدادات الشبكة", "Open network settings")
+        Fix.VPN -> L.t("فتح إعدادات VPN", "افتح إعدادات VPN", "Open VPN settings")
+        Fix.UNKNOWN_SOURCES -> L.t("فتح إعداد تثبيت التطبيقات غير المعروفة", "افتح تسطيب التطبيقات المجهولة", "Open install unknown apps")
+        Fix.ROOT_STOP -> L.t("إيقافه الآن (Root)", "وقّفه دلوقتي (Root)", "Stop it now (root)")
+        Fix.ROOT_DISABLE -> L.t("تعطيله (Root)", "عطّله (Root)", "Disable it (root)")
+        Fix.ROOT_BLOCKNET -> L.t("قطع الإنترنت عنه (Root)", "اقطع عنه النت (Root)", "Cut its internet (root)")
     }
 
     private fun intentFor(f: Fix, pkg: String?): List<Intent> = when (f) {
@@ -61,10 +61,10 @@ object Actions {
 
     fun summary(r: ScanResult, d: DeviceData?): String = buildString {
         val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
-        appendLine("Horus Shield — ${L.t("تقرير فحص الموبايل", "Phone scan report")}")
-        appendLine("${L.t("الوقت", "Time")}: ${fmt.format(Date(r.atMillis))}")
-        if (d != null) appendLine("${L.t("الموبايل", "Phone")}: ${d.maker} ${d.model}, Android ${d.release}, ${L.t("تحديث أمني", "patch")} ${d.patch}")
-        appendLine("${L.t("رقم الأمان", "Security score")}: ${r.score}/100 (${r.grade})")
+        appendLine("Horus Shield — ${L.t("تقرير فحص الهاتف", "تقرير فحص الموبايل", "Phone scan report")}")
+        appendLine("${L.t("الوقت", "الوقت", "Time")}: ${fmt.format(Date(r.atMillis))}")
+        if (d != null) appendLine("${L.t("الهاتف", "الموبايل", "Phone")}: ${d.maker} ${d.model}, Android ${d.release}, ${L.t("التحديث الأمني", "تحديث أمني", "patch")} ${d.patch}")
+        appendLine("${L.t("مستوى الحماية", "رقم الأمان", "Security score")}: ${r.score}/100 (${r.grade})")
         appendLine(r.headline)
         appendLine()
         for (f in r.findings) {
@@ -72,9 +72,9 @@ object Actions {
             f.evidence.take(6).forEach { appendLine("   - $it") }
         }
         if (r.changes.isNotEmpty()) {
-            appendLine(); appendLine(L.t("اتغيّر من آخر فحص:", "Changed since last scan:"))
+            appendLine(); appendLine(L.t("ما تغيّر منذ الفحص السابق:", "اتغيّر من آخر فحص:", "Changed since last scan:"))
             r.changes.forEach { appendLine(" - $it") }
         }
-        appendLine(); appendLine("${L.t("قاعدة التهديدات", "Threat intel")}: ${r.intelDate}")
+        appendLine(); appendLine("${L.t("قاعدة التهديدات", "قاعدة التهديدات", "Threat intel")}: ${r.intelDate}")
     }
 }

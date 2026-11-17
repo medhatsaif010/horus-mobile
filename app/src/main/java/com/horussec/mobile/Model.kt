@@ -11,10 +11,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-/** Arabic / English switch. Every user-facing string goes through L.t(ar, en). */
+/** Language switch: "en" English (default), "ar" Modern Standard Arabic, "eg" Egyptian Arabic.
+ *  Every user-facing string goes through L.t(msa, eg, en). */
 object L {
-    var ar by mutableStateOf(true)
+    var lang by mutableStateOf("en")
+    val ar: Boolean get() = lang != "en"
     fun t(a: String, e: String): String = if (ar) a else e
+    fun t(msa: String, eg: String, en: String): String = when (lang) { "ar" -> msa; "eg" -> eg; else -> en }
+    fun load() { lang = when (Prefs.str("lang")) { "ar" -> "ar"; "eg" -> "eg"; else -> "en" } }
 }
 
 object Prefs {

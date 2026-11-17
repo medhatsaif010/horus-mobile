@@ -262,7 +262,7 @@ fun Choice(text: String, selected: Boolean, onClick: () -> Unit) {
 fun Why(short: String, long: String, shortColor: Color = C.Text2) {
     var open by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     Text(short, color = shortColor, fontSize = 14.sp)
-    Text(if (open) L.t("اخفي", "Hide") else L.t("ليه؟", "Why?"), color = C.GoldLight, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+    Text(if (open) L.t("إخفاء", "اخفي", "Hide") else L.t("لماذا؟", "ليه؟", "Why?"), color = C.GoldLight, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
         modifier = Modifier.heightIn(min = 36.dp).clip(R8).clickable { open = !open }.padding(vertical = 8.dp))
     if (open) Text(long, color = C.Muted, fontSize = 13.sp)
 }
@@ -303,7 +303,7 @@ fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
                         Tab.SETTINGS -> R.drawable.ic_gear
                     }, col, 24.dp)
                     Text(
-                        when (t) { Tab.SECURITY -> L.t("الرئيسية", "Home"); Tab.TOOLS -> L.t("الأدوات", "Tools"); Tab.REPORTS -> L.t("التقارير", "Reports"); Tab.SETTINGS -> L.t("الإعدادات", "Settings") },
+                        when (t) { Tab.SECURITY -> L.t("الرئيسية", "الرئيسية", "Home"); Tab.TOOLS -> L.t("الأدوات", "الأدوات", "Tools"); Tab.REPORTS -> L.t("التقارير", "التقارير", "Reports"); Tab.SETTINGS -> L.t("الإعدادات", "الإعدادات", "Settings") },
                         color = col, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
                     )
                 }

@@ -103,18 +103,22 @@ class MainActivity : ComponentActivity() {
     private fun handle(i: Intent?) {
         if (i != null && BuildConfig.DEBUG) {
             // test hooks used by the automated smoke test (debug builds only)
-            i.getStringExtra("horus_lang")?.let { App.setLang(it == "ar") }
+            i.getStringExtra("horus_lang")?.let { App.setLang(it) }
             i.getStringExtra("horus_theme")?.let { App.chooseTheme(it) }
             when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME; "legal" -> App.screen = Screen.LEGAL; "settings" -> App.screen = Screen.SETTINGS; "link" -> App.screen = Screen.LINK; "tools" -> App.screen = Screen.TOOLS; "reports" -> App.screen = Screen.REPORTS }
-            if (i.getBooleanExtra("horus_widgetshot", false)) try {
-                java.io.FileOutputStream(java.io.File(cacheDir, "widget.png")).use { SealWidget.bitmap(this, 420).compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-            } catch (e: Exception) { }
             if (i.getBooleanExtra("horus_autoscan", false)) App.startScan(deep = i.getBooleanExtra("horus_deep", true))
             if (i.getBooleanExtra("horus_rootmode", false)) { App.rootDetected = true; App.enableRoot() }
             if (i.hasExtra("horus_auto")) App.setAuto(i.getIntExtra("horus_auto", 0))
             if (i.getBooleanExtra("horus_runworker", false)) androidx.work.WorkManager.getInstance(this).enqueue(androidx.work.OneTimeWorkRequestBuilder<ScanWorker>().build())
-            if (i.getBooleanExtra("horus_testnotify", false)) AutoScan.notify(this, "Horus Shield: علامات اختراق على الموبايل", "تجربة: تنبيه الفحص التلقائي")
+            if (i.getBooleanExtra("horus_testnotify", false)) AutoScan.notify(this, L.t("Horus Shield: علامات اختراق على الهاتف", "Horus Shield: علامات اختراق على الموبايل", "Horus Shield: signs of compromise on the phone"), "Test")
+            if (i.getBooleanExtra("horus_testupdnotify", false)) UpdateCheck.post(this, UpdateInfo(BuildConfig.VERSION_CODE + 1, "1.0.${BuildConfig.VERSION_CODE + 1}", "", "", ""))
             if (i.getBooleanExtra("horus_fakeupdate", false)) App.update = UpdateInfo(BuildConfig.VERSION_CODE + 1, "1.0.${BuildConfig.VERSION_CODE + 1}", "https://github.com/medhatsaif010/horus-mobile/releases/download/apk/HorusSec-Mobile.apk", "0".repeat(64), "تجربة: شاشة التحديث")
+        }
+        if (i != null && i.getBooleanExtra("horus_open_about", false)) {
+            i.removeExtra("horus_open_about")
+            App.screen = Screen.ABOUT
+            App.checkUpdate(quiet = true)
+            return
         }
         if (i != null && i.getBooleanExtra("horus_open_result", false)) {
             i.removeExtra("horus_open_result")

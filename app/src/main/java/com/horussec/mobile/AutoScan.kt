@@ -47,8 +47,8 @@ object AutoScan {
     fun ensureChannel(ctx: Context) {
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (nm.getNotificationChannel(CHANNEL) == null) {
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, L.t("تنبيهات الأمان", "Security alerts"), NotificationManager.IMPORTANCE_HIGH).apply {
-                description = L.t("لما الفحص التلقائي يلاقي حاجة جديدة ومهمة", "When the automatic scan finds something new and important")
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, L.t("تنبيهات الأمان", "تنبيهات الأمان", "Security alerts"), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = L.t("عندما يجد الفحص التلقائي شيئًا جديدًا ومهمًا", "لما الفحص التلقائي يلاقي حاجة جديدة ومهمة", "When the automatic scan finds something new and important")
             })
         }
     }
@@ -64,15 +64,15 @@ object AutoScan {
         val newAdm = d.admins.filter { it !in prev.admins && byPkg[it]?.system == false }
         val newSide = d.apps.filter { it.pkg !in prev.apps && Analyzer.isSideloaded(it, d.selfPkg) }
         if (newIocs.isNotEmpty()) {
-            val title = if (newIocs.any { it.sev == Sev.CRIT }) L.t("Horus Shield: علامات اختراق على الموبايل", "Horus Shield: signs of compromise on this phone")
-            else L.t("Horus Shield: حاجة جديدة محتاجة تتأكد منها", "Horus Shield: something new needs checking")
+            val title = if (newIocs.any { it.sev == Sev.CRIT }) L.t("Horus Shield: علامات اختراق على الهاتف", "Horus Shield: علامات اختراق على الموبايل", "Horus Shield: signs of compromise on this phone")
+            else L.t("Horus Shield: أمر جديد يحتاج إلى التحقق منه", "Horus Shield: حاجة جديدة محتاجة تتأكد منها", "Horus Shield: something new needs checking")
             return title to newIocs.first().title
         }
-        val lines = newAcc.map { L.t("صلاحية Accessibility جديدة: ", "New Accessibility access: ") + (byPkg[it]?.label ?: it) } +
-            newAdm.map { L.t("Device admin جديد: ", "New device admin: ") + (byPkg[it]?.label ?: it) } +
-            newSide.map { L.t("تطبيق جديد من برّه المتجر: ", "New app from outside a store: ") + it.label }
+        val lines = newAcc.map { L.t("صلاحية Accessibility جديدة: ", "صلاحية Accessibility جديدة: ", "New Accessibility access: ") + (byPkg[it]?.label ?: it) } +
+            newAdm.map { L.t("Device admin جديد: ", "Device admin جديد: ", "New device admin: ") + (byPkg[it]?.label ?: it) } +
+            newSide.map { L.t("تطبيق جديد من خارج المتجر: ", "تطبيق جديد من برّه المتجر: ", "New app from outside a store: ") + it.label }
         if (lines.isEmpty()) return null
-        return L.t("Horus Shield: اتغيّر حاجة على الموبايل", "Horus Shield: something changed on the phone") to lines.take(3).joinToString("\n")
+        return L.t("Horus Shield: تغيّر شيء على الهاتف", "Horus Shield: اتغيّر حاجة على الموبايل", "Horus Shield: something changed on the phone") to lines.take(3).joinToString("\n")
     }
 
     @SuppressLint("MissingPermission")
@@ -97,7 +97,7 @@ class ScanWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
     override suspend fun doWork(): Result {
         val c = applicationContext
         Prefs.init(c)
-        L.ar = (Prefs.str("lang") ?: "ar") == "ar"
+        L.load()
         try {
             val age = Intel.ageDays(Intel.get(c)) ?: 99
             if (age >= 2) Intel.update(c)
@@ -110,7 +110,6 @@ class ScanWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             Prefs.put("lastScore", r.score.toString()); Prefs.putLong("lastScanAt", r.atMillis)
             Prefs.put("lastVerdict", r.verdict); Prefs.putLong("lastAutoScan", r.atMillis)
             History.add(r, auto = true)
-            SealWidget.update(c)
             AutoScan.alertFor(d, r)?.let { (t, b) -> AutoScan.notify(c, t, b) }
             Result.success()
         } catch (e: Exception) { Result.retry() }
