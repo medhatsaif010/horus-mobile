@@ -540,8 +540,10 @@ fun FindingRow(n: Int, f: Finding, onFix: (Fix) -> Unit) {
                         f.evidence.forEach { Text(it, color = C.Muted, fontSize = 12.sp) }
                     }
                 }
-                if (f.fixes.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                val topic = AskKB.topicFor(f.key)
+                if (f.fixes.isNotEmpty() || topic != null) FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     f.fixes.forEach { fx -> ActionText(Actions.label(fx)) { onFix(fx) } }
+                    if (topic != null) ActionText(L.t("اشرح لي", "اشرحلي", "Explain")) { Ask.open(Screen.RESULT, topic) }
                 }
             }
             Spacer(Modifier.width(6.dp))
@@ -636,6 +638,7 @@ fun ToolsScreen() = TabScreen(Tab.TOOLS) {
         TopBar(L.t("الأدوات", "الأدوات", "Tools"), null)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)) {
+                ListRow(L.t("اسأل حورس", "اسأل حورس", "Ask Horus"), L.t("أسئلة عن التطبيق ونصائح أمنية، دون إنترنت", "أسئلة عن البرنامج ونصايح أمنية، من غير نت", "Questions about the app and security tips, offline"), icon = R.drawable.ic_chat, onClick = { Ask.open(Screen.TOOLS) })
                 ListRow(L.t("فحص الروابط", "فحص اللينكات", "Link check"), L.t("قبل أن تفتح أي رابط من واتساب أو رسالة", "قبل ما تفتح أي لينك من واتساب أو رسالة", "Before you open a link from WhatsApp or a message"), icon = R.drawable.ic_link, onClick = { App.linkResult = null; App.screen = Screen.LINK })
                 val exp = App.result?.exposure?.firstOrNull()
                 ListRow(L.t("من يستطيع سماعك ورؤيتك", "مين يقدر يسمعك ويشوفك", "Who can hear and see you"), exp?.let { L.t("${it.apps.size} تطبيقات لديها ${it.label}", "${it.apps.size} تطبيقات معاها ${it.label}", "${it.apps.size} apps with ${it.label}") } ?: L.t("الميكروفون والكاميرا والموقع", "المايك والكاميرا والموقع", "Microphone, camera and location"),

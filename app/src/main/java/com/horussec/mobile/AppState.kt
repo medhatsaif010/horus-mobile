@@ -16,7 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class Screen { HOME, SCANNING, RESULT, LINK, TOOLS, REPORTS, SETTINGS, ABOUT, LEGAL }
+enum class Screen { HOME, SCANNING, RESULT, LINK, TOOLS, REPORTS, SETTINGS, ABOUT, LEGAL, ASK }
 
 /** App-wide state. Lives as long as the process, so a rotation or theme change keeps the scan. */
 object App {

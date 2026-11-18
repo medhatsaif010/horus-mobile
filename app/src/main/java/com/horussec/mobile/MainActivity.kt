@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalLayoutDirection provides if (L.ar) LayoutDirection.Rtl else LayoutDirection.Ltr) {
                     Surface(Modifier.fillMaxSize(), color = C.Bg, contentColor = C.Text) {
                         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                            BackHandler(enabled = App.screen != Screen.HOME && App.screen != Screen.SCANNING) { App.screen = when (App.screen) { Screen.LEGAL -> Screen.ABOUT; Screen.ABOUT -> Screen.SETTINGS; Screen.LINK -> Screen.TOOLS; else -> Screen.HOME } }
+                            BackHandler(enabled = App.screen != Screen.HOME && App.screen != Screen.SCANNING) { App.screen = when (App.screen) { Screen.LEGAL -> Screen.ABOUT; Screen.ABOUT -> Screen.SETTINGS; Screen.LINK -> Screen.TOOLS; Screen.ASK -> com.horussec.mobile.ui.Ask.back; else -> Screen.HOME } }
                             androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(1400); App.splash = false }
                             if (App.splash) com.horussec.mobile.ui.SplashScreen() else when (App.screen) {
                                 Screen.HOME -> HomeScreen()
@@ -78,6 +78,7 @@ class MainActivity : ComponentActivity() {
                                 Screen.REPORTS -> com.horussec.mobile.ui.ReportsScreen()
                                 Screen.ABOUT -> AboutScreen()
                                 Screen.LEGAL -> com.horussec.mobile.ui.LegalScreen()
+                                Screen.ASK -> com.horussec.mobile.ui.AskScreen()
                             }
                         }
                     }
@@ -105,12 +106,14 @@ class MainActivity : ComponentActivity() {
             // test hooks used by the automated smoke test (debug builds only)
             i.getStringExtra("horus_lang")?.let { App.setLang(it) }
             i.getStringExtra("horus_theme")?.let { App.chooseTheme(it) }
-            when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME; "legal" -> App.screen = Screen.LEGAL; "settings" -> App.screen = Screen.SETTINGS; "link" -> App.screen = Screen.LINK; "tools" -> App.screen = Screen.TOOLS; "reports" -> App.screen = Screen.REPORTS }
+            when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME; "legal" -> App.screen = Screen.LEGAL; "settings" -> App.screen = Screen.SETTINGS; "link" -> App.screen = Screen.LINK; "tools" -> App.screen = Screen.TOOLS; "reports" -> App.screen = Screen.REPORTS; "ask" -> com.horussec.mobile.ui.Ask.open(Screen.TOOLS) }
             if (i.getBooleanExtra("horus_autoscan", false)) App.startScan(deep = i.getBooleanExtra("horus_deep", true))
             if (i.getBooleanExtra("horus_rootmode", false)) { App.rootDetected = true; App.enableRoot() }
             if (i.hasExtra("horus_auto")) App.setAuto(i.getIntExtra("horus_auto", 0))
             if (i.getBooleanExtra("horus_runworker", false)) androidx.work.WorkManager.getInstance(this).enqueue(androidx.work.OneTimeWorkRequestBuilder<ScanWorker>().build())
             if (i.getBooleanExtra("horus_testnotify", false)) AutoScan.notify(this, L.t("Horus Shield: علامات اختراق على الهاتف", "Horus Shield: علامات اختراق على الموبايل", "Horus Shield: signs of compromise on the phone"), "Test")
+            i.getStringExtra("horus_ask")?.let { com.horussec.mobile.ui.Ask.open(Screen.TOOLS); com.horussec.mobile.ui.Ask.ask(it) }
+            i.getStringExtra("horus_asktopic")?.let { com.horussec.mobile.ui.Ask.open(Screen.RESULT, it) }
             if (i.getBooleanExtra("horus_testupdnotify", false)) UpdateCheck.post(this, UpdateInfo(BuildConfig.VERSION_CODE + 1, "1.0.${BuildConfig.VERSION_CODE + 1}", "", "", ""))
             if (i.getBooleanExtra("horus_fakeupdate", false)) App.update = UpdateInfo(BuildConfig.VERSION_CODE + 1, "1.0.${BuildConfig.VERSION_CODE + 1}", "https://github.com/medhatsaif010/horus-mobile/releases/download/apk/HorusSec-Mobile.apk", "0".repeat(64), "تجربة: شاشة التحديث")
         }
