@@ -144,13 +144,13 @@ adb shell input tap 200 600          # Tools tab
 sleep 3
 adb shell input tap 160 125          # Link check
 sleep 3
-adb shell input tap 160 222          # link field
+adb shell input tap 160 175          # link field
 sleep 1
 adb shell input text "http://nbe-eg.verify-account.top/login"
 sleep 2
 adb shell input keyevent 111
 sleep 1
-adb shell input tap 160 287          # Check link
+adb shell input tap 160 243          # Check link
 sleep 12
 adb shell input tap 290 52            # back to Tools
 sleep 3
