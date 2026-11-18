@@ -39,7 +39,14 @@ object Analyzer {
     private val googleCerts = setOf("38918a453d07199354f8b19af05ec6562ced5788", "24bb24c05e47e0aefa68a58a766179d9b613a600")
     private fun isGoogleSigned(a: AppInfo) = a.certSha1.any { it.replace(":", "").lowercase() in googleCerts }
 
-    fun isSideloaded(a: AppInfo, selfPkg: String) = !a.system && a.pkg != selfPkg && (a.installer == null || a.installer !in stores)
+    /**
+     * The installer name can be set by whoever installs the app ("pm install -i com.android.vending" from a computer),
+     * so an app that claims a store but was really installed over adb counts as installed from outside a store.
+     */
+    fun spoofedStore(a: AppInfo) = !a.system && a.installer != null && a.installer in stores && a.initiator in adbInitiators
+    private val adbInitiators = setOf("com.android.shell", "root")
+
+    fun isSideloaded(a: AppInfo, selfPkg: String) = !a.system && a.pkg != selfPkg && (a.installer == null || a.installer !in stores || spoofedStore(a))
 
     fun analyze(d: DeviceData, intel: IntelData): ScanResult {
         val findings = ArrayList<Finding>()
@@ -50,7 +57,7 @@ object Analyzer {
         fun name(p: String): String { val a = byPkg[p]; return if (a == null || a.label == p) p else "${a.label} ($p)" }
         fun date(p: String): String = byPkg[p]?.firstInstall?.let { if (it > 0) day.format(Date(it)) else "" } ?: ""
         fun isSide(a: AppInfo) = isSideloaded(a, d.selfPkg)
-        fun inst(a: AppInfo) = a.installer ?: L.t("ملف APK أو مصدر غير معروف", "ملف APK أو جهة مش معروفة", "APK file or unknown source")
+        fun inst(a: AppInfo) = if (spoofedStore(a)) L.t("كمبيوتر عبر USB (يدّعي ${a.installer})", "كمبيوتر بالكابل (بيدّعي ${a.installer})", "a computer over USB (claims ${a.installer})") else a.installer ?: L.t("ملف APK أو مصدر غير معروف", "ملف APK أو جهة مش معروفة", "APK file or unknown source")
 
         // 1. known stalkerware (by package name or by signing certificate)
         val stalkerPkgs = HashSet<String>()
@@ -183,6 +190,20 @@ object Analyzer {
         ))
 
         // 5. sideloading
+        // 5a. installed from a computer while pretending to come from an app store
+        for (a in user.filter { spoofedStore(it) && it.pkg !in stalkerPkgs }) findings.add(Finding(
+            key = "spoofed-installer:${a.pkg}", sev = Sev.HIGH, ioc = true, pkg = a.pkg,
+            title = L.t("تطبيق ثُبّت من كمبيوتر ويدّعي أنه من المتجر: ${a.label}", "تطبيق اتسطّب من كمبيوتر وبيدّعي إنه من المتجر: ${a.label}", "App installed from a computer that claims to come from a store: ${a.label}"),
+            why = L.t("سجّل أندرويد أن هذا التطبيق ثُبّت عبر كابل USB من كمبيوتر (adb)، بينما يقول إن مصدره ${a.installer}. لا يفعل ذلك إلا شخص أمسك بالهاتف ويريد أن يبدو التطبيق قادمًا من المتجر، وهو أسلوب يُستخدم لتثبيت برامج التجسس.",
+                "أندرويد مسجّل إن التطبيق ده اتسطّب بكابل USB من كمبيوتر (adb)، وفي نفس الوقت بيقول إن مصدره ${a.installer}. محدش بيعمل كده غير حد مسك الموبايل وعايز التطبيق يبان إنه من المتجر، وده أسلوب بيتستخدم لتسطيب برامج التجسس.",
+                "Android recorded that this app was installed over USB from a computer (adb), while it says it came from ${a.installer}. Only someone with the phone in hand does this, to make an app look like it came from the store. It is a known way to plant spyware."),
+            todo = L.t("إن لم تكن أنت أو شخص تثق به من ثبّته، فلا تحذفه فورًا إن شعرت بخطر، واحفظ الملخص واطلب المساعدة، ثم احذفه وغيّر كلمة مرور Google من جهاز آخر.",
+                "لو مش إنت أو حد بتثق فيه اللي سطّبه، متمسحوش على طول لو حاسس بخطر، احفظ الملخص واطلب مساعدة، وبعدين امسحه وغيّر باسورد Google من جهاز تاني.",
+                "If neither you nor someone you trust installed it, do not delete it straight away if you feel at risk: save the summary and get help, then remove it and change your Google password from another device."),
+            evidence = listOf("${L.t("التطبيق", "التطبيق", "App")}: ${name(a.pkg)}", "${L.t("المصدر المُدّعى", "المصدر اللي بيقوله", "Claimed source")}: ${a.installer}",
+                "${L.t("من بدأ التثبيت", "مين بدأ التسطيب", "Install started by")}: ${a.initiator}", "${L.t("تاريخ التثبيت", "اتسطّب", "Installed")}: ${date(a.pkg)}"),
+            fixes = listOf(Fix.APP_SETTINGS, Fix.UNINSTALL), stalker = true,
+        ))
         val side = user.filter { isSide(it) }
         if (side.isNotEmpty()) findings.add(Finding(
             key = "sideloaded-apps", sev = if (side.size >= 3) Sev.MED else Sev.LOW,

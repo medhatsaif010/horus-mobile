@@ -45,6 +45,11 @@ object Collector {
         else pm.getInstallerPackageName(pkg)
     } catch (e: Exception) { null }
 
+    /** Android 11+: the package that really started the install. "com.android.shell" means adb from a computer. */
+    private fun initiatorOf(pm: PackageManager, pkg: String): String? = try {
+        if (Build.VERSION.SDK_INT >= 30) pm.getInstallSourceInfo(pkg).initiatingPackageName else null
+    } catch (e: Exception) { null }
+
     @Suppress("DEPRECATION")
     private fun certsOf(pm: PackageManager, pkg: String): List<Pair<String, String>> = try {
         val sigs: Array<android.content.pm.Signature>? = if (Build.VERSION.SDK_INT >= 28) {
@@ -116,6 +121,7 @@ object Collector {
                     granted = granted, requested = requested,
                     certSha1 = certs.map { it.first }, certSubjects = certs.map { it.second },
                     overlay = overlay, canInstall = canInstall,
+                    initiator = if (system) null else initiatorOf(pm, pi.packageName),
                 )
             )
         }

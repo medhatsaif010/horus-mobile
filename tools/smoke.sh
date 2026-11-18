@@ -178,6 +178,22 @@ adb shell pkill -INT screenrecord || true
 wait $REC || true
 sleep 2
 adb pull /sdcard/journey-ar.mp4 shots/journey-ar.mp4 || true
+# ---- detection test: an app installed over adb that claims to come from Google Play ----
+BT=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
+PLAT=$(ls -d "$ANDROID_HOME"/platforms/android-*/ | sort -V | tail -1)
+mkdir -p /tmp/spoof
+cat > /tmp/spoof/AndroidManifest.xml <<'XML'
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.spooftest"><uses-permission android:name="android.permission.READ_SMS"/><application android:hasCode="false" android:label="Spoof Test"/></manifest>
+XML
+"${BT}aapt2" link -o /tmp/spoof/u.apk -I "${PLAT}android.jar" --manifest /tmp/spoof/AndroidManifest.xml --min-sdk-version 26 --target-sdk-version 34 && \
+"${BT}apksigner" sign --ks app/horus-test.keystore --ks-pass pass:android --out /tmp/spoof/spoof.apk /tmp/spoof/u.apk && \
+adb install -i com.android.vending /tmp/spoof/spoof.apk
+adb shell dumpsys package com.example.spooftest | grep -iE "installerPackageName|initiatingPackageName" > shots/spoof-install.txt || true
+adb shell am start -n $A --es horus_lang en --ez horus_autoscan true
+shot 23-spoof-result 20
+adb shell input swipe 160 560 160 120 400
+shot 23b-spoof-result 2
+adb uninstall com.example.spooftest || true
 adb shell am start -n $A --ez horus_selftest true
 sleep 6
 adb logcat -d -s HorusSelfTest > shots/selftest.txt || true

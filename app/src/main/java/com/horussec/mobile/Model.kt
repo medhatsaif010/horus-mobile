@@ -99,6 +99,8 @@ data class AppInfo(
     val certSubjects: List<String>,
     val overlay: Boolean,
     val canInstall: Boolean?,
+    /** Who actually started the install (Android 11+). The system records it and an installer cannot fake it. */
+    val initiator: String? = null,
 )
 
 data class Snapshot(

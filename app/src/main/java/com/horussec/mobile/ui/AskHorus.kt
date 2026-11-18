@@ -126,7 +126,7 @@ object AskKB {
     fun topicFor(key: String): String? {
         val k = key.substringBefore(':')
         return when {
-            k == "stalkerware" || k == "c2-conn" || k == "uploads" || k == "hidden-app" -> "spyware-found"
+            k == "stalkerware" || k == "c2-conn" || k == "uploads" || k == "hidden-app" || k == "spoofed-installer" -> "spyware-found"
             k == "fake-finance" || k == "banker-pattern" -> "fake-bank-app"
             k == "accessibility" -> "accessibility"
             k == "device-admin" || k == "device-owner" -> "device-admin"
