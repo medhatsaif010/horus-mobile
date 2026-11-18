@@ -1,6 +1,6 @@
 /*
- * Horus Sec Mobile
- * Copyright (c) 2026 Medhat Seif Abd El Hamid. All rights reserved.
+ * Horus Shield
+ * Copyright (c) 2026 Horus ICT (horusict.com). All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or distribution is prohibited.
  */
 package com.horussec.mobile.ui
@@ -35,12 +35,11 @@ import com.horussec.mobile.L
 import com.horussec.mobile.Screen
 
 object Owner {
-    val nameAr = "مدحت سيف"
-    val nameEn = "Medhat Saif"
+    const val company = "Horus ICT"
     const val year = "2026"
-    const val linkedin = "https://www.linkedin.com/in/medhat-saif/"
-    const val contact = linkedin
-    fun name() = L.t(nameAr, nameEn)
+    const val website = "https://horusict.com"
+    const val contact = "horusict.com"
+    fun name() = company
     fun copyright() = "© $year " + name() + ". " + L.t("جميع الحقوق محفوظة.", "كل الحقوق محفوظة.", "All rights reserved.")
 }
 
@@ -76,8 +75,8 @@ fun LegalScreen() {
 
 private fun terms(): List<Pair<String, String>> = listOf(
     L.t("الملكية", "الملكية", "Ownership") to L.t(
-        "Horus Shield، بالكود والتصميم والاسم والشعار، ملك ${Owner.nameAr}. جميع الحقوق محفوظة. يُمنع نسخ التطبيق أو تعديله أو فك تجميعه أو إعادة توزيعه أو بيعه أو نشر نسخة منه باسم آخر دون إذن كتابي.", "Horus Shield و Horus Shield، بالكود والتصميم والاسم واللوجو، ملك ${Owner.nameAr}. كل الحقوق محفوظة. ممنوع نسخ التطبيق أو تعديله أو فك تجميعه أو إعادة توزيعه أو بيعه أو نشر نسخة منه باسم تاني من غير إذن مكتوب.",
-        "Horus Shield and Horus Shield, including the code, design, name and logo, are owned by ${Owner.nameEn}. All rights reserved. You may not copy, modify, decompile, redistribute, sell or publish the app under another name without written permission."),
+        "Horus Shield، بالكود والتصميم والاسم والشعار، ملك شركة ${Owner.company}. جميع الحقوق محفوظة. يُمنع نسخ التطبيق أو تعديله أو فك تجميعه أو إعادة توزيعه أو بيعه أو نشر نسخة منه باسم آخر دون إذن كتابي.", "Horus Shield، بالكود والتصميم والاسم واللوجو، ملك شركة ${Owner.company}. كل الحقوق محفوظة. ممنوع نسخ التطبيق أو تعديله أو فك تجميعه أو إعادة توزيعه أو بيعه أو نشر نسخة منه باسم تاني من غير إذن مكتوب.",
+        "Horus Shield, including the code, design, name and logo, are owned by ${Owner.company}. All rights reserved. You may not copy, modify, decompile, redistribute, sell or publish the app under another name without written permission."),
     L.t("ترخيص الاستخدام", "ترخيص الاستخدام", "Licence to use") to L.t(
         "يُسمح لك بتثبيت التطبيق واستخدامه على أجهزتك الشخصية والعائلية. أما الاستخدام التجاري (الشركات ومراكز الصيانة والخدمات المدفوعة) فيحتاج إلى اتفاق منفصل.", "مسموحلك تسطّب التطبيق وتستخدمه على أجهزتك الشخصية والعائلية. الاستخدام التجاري (شركات، مراكز صيانة، خدمات مدفوعة) محتاج اتفاق منفصل.",
         "You may install and use the app on your own and your family's devices. Commercial use (companies, repair shops, paid services) needs a separate agreement."),

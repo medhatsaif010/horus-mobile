@@ -1,6 +1,6 @@
 /*
- * Horus Sec Mobile
- * Copyright (c) 2026 Medhat Seif Abd El Hamid. All rights reserved.
+ * Horus Shield
+ * Copyright (c) 2026 Horus ICT (horusict.com). All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or distribution is prohibited.
  */
 package com.horussec.mobile.ui
@@ -97,14 +97,14 @@ fun SettingsScreen() = TabScreen(Tab.SETTINGS) {
 
             HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)) {
                 ListRow(L.t("حول التطبيق والتحديثات", "حول التطبيق والتحديثات", "About and updates"), onClick = { App.screen = Screen.ABOUT })
-                ListRow(L.t("الدعم والتواصل مع المطوّر", "الدعم والتواصل مع المطوّر", "Support and contact"), "LinkedIn", onClick = {
-                    try { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(Owner.linkedin)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { }
+                ListRow(L.t("الدعم والتواصل", "الدعم والتواصل", "Support and contact"), "horusict.com", onClick = {
+                    try { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(Owner.website)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { }
                 }, last = true)
             }
 
             Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Decor(R.drawable.art_lotus, Modifier.width(44.dp), alpha = 0.6f)
-                Text("HORUS SHIELD · V" + BuildConfig.VERSION_NAME + " · MEDHAT SAIF", color = C.Dim, fontFamily = Montserrat, fontWeight = FontWeight.Medium, fontSize = 11.sp, letterSpacing = 2.sp, style = Ltr)
+                Text("HORUS SHIELD · V" + BuildConfig.VERSION_NAME + " · HORUS ICT", color = C.Dim, fontFamily = Montserrat, fontWeight = FontWeight.Medium, fontSize = 11.sp, letterSpacing = 2.sp, style = Ltr)
             }
         }
     }

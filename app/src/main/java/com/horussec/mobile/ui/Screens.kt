@@ -1,6 +1,6 @@
 /*
- * Horus Sec Mobile
- * Copyright (c) 2026 Medhat Seif Abd El Hamid. All rights reserved.
+ * Horus Shield
+ * Copyright (c) 2026 Horus ICT (horusict.com). All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or distribution is prohibited.
  */
 package com.horussec.mobile.ui
@@ -716,7 +716,7 @@ fun AboutScreen() {
                 }
                 Secondary(L.t("التراخيص ومصادر البيانات", "التراخيص ومصادر البيانات", "Licences and data sources"), { LegalPage.page = 2; App.screen = Screen.LEGAL }, Modifier.fillMaxWidth())
                 fun open(u: String) { try { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { } }
-                ActionText(L.t("تواصل مع المطوّر على LinkedIn", "تواصل مع المطوّر على LinkedIn", "Contact the developer on LinkedIn")) { open(Owner.linkedin) }
+                ActionText(L.t("الموقع الرسمي: horusict.com", "الموقع الرسمي: horusict.com", "Official website: horusict.com")) { open(Owner.website) }
             }
             HCard(Modifier.fillMaxWidth()) {
                 Text(L.t("قاعدة التهديدات", "قاعدة التهديدات", "Threat intel"), color = C.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
