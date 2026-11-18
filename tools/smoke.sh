@@ -80,6 +80,45 @@ adb shell am start -n $A --es horus_screen settings
 shot 19b-settings-light 3
 adb shell am start -n $A --es horus_theme dark --es horus_screen link
 shot 20-link-tab 3
+# ---- user journey video for the website (English, dark) ----
+adb shell am force-stop $P
+adb shell am start -n $A --es horus_lang en --es horus_theme dark --es horus_screen home
+sleep 4
+adb shell screenrecord --bit-rate 6000000 --time-limit 150 /sdcard/journey.mp4 &
+REC=$!
+sleep 3
+adb shell input tap 160 418          # Scan device
+sleep 26
+adb shell input swipe 160 520 160 220 700
+sleep 3
+adb shell input swipe 160 520 160 220 700
+sleep 3
+adb shell input swipe 160 520 160 220 700
+sleep 3
+adb shell input tap 120 600          # Tools tab
+sleep 3
+adb shell input tap 160 125          # Link check
+sleep 3
+adb shell input tap 160 222          # link field
+sleep 1
+adb shell input text "http://nbe-eg.verify-account.top/login"
+sleep 2
+adb shell input keyevent 111
+sleep 1
+adb shell input tap 160 287          # Check link
+sleep 14
+adb shell input tap 200 600          # Reports tab
+sleep 4
+adb shell input tap 280 600          # Settings tab
+sleep 4
+adb shell input swipe 160 500 160 200 700
+sleep 3
+adb shell input tap 40 600           # Home tab
+sleep 4
+adb shell pkill -INT screenrecord || true
+wait $REC || true
+sleep 2
+adb pull /sdcard/journey.mp4 shots/journey.mp4 || true
 adb shell dumpsys jobscheduler | grep -A3 "horussec" | head -20 > shots/jobs.txt
 adb shell dumpsys package $P | grep -E "versionName|versionCode|targetSdk" > shots/package.txt
 adb logcat -d -b crash | grep -iE "horussec|FATAL EXCEPTION" -A20 > shots/crash.txt || true
