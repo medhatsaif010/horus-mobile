@@ -82,9 +82,9 @@ adb shell am start -n $A --es horus_theme dark --es horus_screen link
 shot 20-link-tab 3
 adb shell am start -n $A --es horus_lang en --es horus_theme dark --es horus_screen ask
 shot 22-ask-en 3
-adb shell am start -n $A --es horus_ask "my whatsapp got hacked"
+adb shell am start -n $A --es horus_ask "'my whatsapp got hacked'"
 shot 22b-ask-en-answer 3
-adb shell am start -n $A --es horus_lang eg --es horus_ask "حد كلمني من البنك وطلب الكود"
+adb shell am start -n $A --es horus_lang eg --es horus_ask "'حد كلمني من البنك وطلب الكود'"
 shot 22c-ask-eg 3
 adb shell am start -n $A --es horus_lang ar --es horus_asktopic spyware-found
 shot 22d-ask-ar-topic 3
