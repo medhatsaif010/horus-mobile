@@ -108,7 +108,9 @@ sleep 2
 adb shell input keyevent 111
 sleep 1
 adb shell input tap 160 287          # Check link
-sleep 14
+sleep 12
+adb shell input tap 30 52            # back to Tools
+sleep 3
 adb shell input tap 200 600          # Reports tab
 sleep 4
 adb shell input tap 280 600          # Settings tab
