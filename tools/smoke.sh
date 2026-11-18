@@ -88,12 +88,14 @@ adb shell screenrecord --bit-rate 6000000 --time-limit 150 /sdcard/journey.mp4 &
 REC=$!
 sleep 3
 adb shell input tap 160 418          # Scan device
-sleep 26
-adb shell input swipe 160 520 160 220 700
+sleep 10
+adb shell input swipe 160 500 160 260 900
 sleep 3
-adb shell input swipe 160 520 160 220 700
+adb shell input swipe 160 500 160 260 900
 sleep 3
-adb shell input swipe 160 520 160 220 700
+adb shell input swipe 160 500 160 260 900
+sleep 3
+adb shell input tap 30 52            # back to Home
 sleep 3
 adb shell input tap 120 600          # Tools tab
 sleep 3
