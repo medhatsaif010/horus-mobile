@@ -73,23 +73,36 @@ object UrlCheck {
 
     private fun under(h: String, list: List<String>) = list.any { h == it || h.endsWith(".$it") }
 
-    private fun headLocation(u: URL): Pair<Int, String?>? {
-        for (method in listOf("HEAD", "GET")) {
-            try {
-                val c = u.openConnection() as HttpURLConnection
-                c.instanceFollowRedirects = false
-                c.requestMethod = method
-                c.connectTimeout = 7000; c.readTimeout = 7000
-                c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36")
-                val code = c.responseCode
-                val loc = c.getHeaderField("Location")
-                c.disconnect()
-                if (code == 405 && method == "HEAD") continue
-                return code to loc
-            } catch (e: Exception) { return null }
+    /**
+     * True when the host is, or resolves to, this phone, the local network or another private range.
+     * Link check never connects to those: a link must not be able to make the phone talk to the router
+     * or other devices at home.
+     */
+    internal fun isLocalTarget(host: String): Boolean {
+        val h = host.trim('[', ']').lowercase()
+        if (h == "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".lan") || h.endsWith(".home.arpa") || h.endsWith(".internal")) return true
+        val addrs = try { java.net.InetAddress.getAllByName(h).toList() } catch (e: Exception) { return false }
+        return addrs.any { a ->
+            val b = a.address
+            a.isLoopbackAddress || a.isSiteLocalAddress || a.isLinkLocalAddress || a.isAnyLocalAddress || a.isMulticastAddress ||
+                (b.size == 4 && ((b[0].toInt() and 0xFF) == 100 && (b[1].toInt() and 0xC0) == 64)) ||          // 100.64.0.0/10 carrier NAT
+                (b.size == 4 && (b[0].toInt() and 0xFF) == 0) ||
+                (b.size == 16 && (b[0].toInt() and 0xFE) == 0xFC)                                              // fc00::/7 unique local
         }
-        return null
     }
+
+    /** Header-only request (HEAD). Never GET: the page is not opened and nothing is submitted. */
+    private fun headLocation(u: URL): Pair<Int, String?>? = try {
+        val c = u.openConnection() as HttpURLConnection
+        c.instanceFollowRedirects = false
+        c.requestMethod = "HEAD"
+        c.connectTimeout = 7000; c.readTimeout = 7000
+        c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36")
+        val code = c.responseCode
+        val loc = c.getHeaderField("Location")
+        c.disconnect()
+        code to loc
+    } catch (e: Exception) { null }
 
     private fun domainAge(domain: String): Int? = try {
         val c = URL("https://rdap.org/domain/$domain").openConnection() as HttpURLConnection
@@ -112,7 +125,8 @@ object UrlCheck {
 
     /** Blocking: call from a background thread. */
     fun check(input: String, intel: IntelData, online: Boolean = true): UrlResult {
-        var u = (extract(input) ?: input).trim().trim('"', '\'')
+        val text = input.take(4000)
+        var u = (extract(text) ?: text).trim().trim('"', '\'').take(2048)
         if (u.isEmpty()) return UrlResult(false, "badurl")
         if (!Regex("^[a-zA-Z][a-zA-Z0-9+.\\-]*://").containsMatchIn(u)) u = "https://$u"
         val first: URL = try {
@@ -134,6 +148,7 @@ object UrlCheck {
             reach = "ok"
             var cur = first
             for (i in 0 until 6) {
+                if (isLocalTarget(cur.host)) { reach = "local"; break }
                 val r = headLocation(cur)
                 if (r == null) { reach = "unreachable"; break }
                 val loc = r.second ?: break
@@ -194,10 +209,11 @@ object UrlCheck {
         }
         if (chain.size > 1 && registrable(first.host.lowercase()) != freg) sig("note", "يحوّلك الرابط إلى موقع آخر: $fh", "اللينك بيحوّلك لموقع تاني: $fh", "The link redirects you to another site: $fh")
         if (chain.size >= 4) sig("warn", "يمر الرابط بـ ${chain.size - 1} تحويلات قبل أن يصل، وهذا أسلوب لإخفاء الوجهة.", "اللينك بيعدّي على ${chain.size - 1} تحويلات قبل ما يوصل، وده أسلوب لتخبية الوجهة.", "The link goes through ${chain.size - 1} redirects, a way to hide where it ends up.")
+        if (reach == "local") sig("warn", "يشير الرابط إلى جهاز على شبكتك المحلية أو على الهاتف نفسه، لذا لم يتصل به Horus Shield. لا تفتحه إلا إن كنت تعرف هذا الجهاز.", "اللينك بيشاور على جهاز على شبكتك أو على الموبايل نفسه، علشان كده Horus Shield متصلش بيه. متفتحهوش غير لو عارف الجهاز ده.", "The link points to a device on your local network or to the phone itself, so Horus Shield did not connect to it. Only open it if you know that device.")
         if (reach == "unreachable") sig("note", "لم يستجب الموقع. ربما أُغلق، فصفحات الاحتيال تُغلق بسرعة.", "الموقع مردّش. ممكن يكون اتقفل، وصفحات النصب بتتقفل بسرعة.", "The site did not answer. It may be down; scam pages are taken down quickly.")
 
         var age: Int? = null
-        if (online && !fIp) {
+        if (online && !fIp && reach != "local") {
             age = domainAge(freg)
             if (age != null) {
                 if (age < 30) sig("warn", "سُجّل النطاق $freg منذ $age يوم فقط، ومواقع الاحتيال عادةً حديثة جدًا.", "الدومين $freg اتسجّل من $age يوم بس. مواقع النصب بتبقى جديدة جدًا.", "The domain $freg was registered only $age days ago. Scam sites are usually brand new.")

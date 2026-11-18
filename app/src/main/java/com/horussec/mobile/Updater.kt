@@ -89,10 +89,32 @@ object Updater {
             }
             val hex = md.digest().joinToString("") { "%02x".format(it) }
             if (hex != info.sha256) { out.delete(); throw Exception("sha") }
+            // the new build must be signed with the same key as the app that is running now
+            if (!sameSigner(ctx, out)) { out.delete(); throw Exception("sha") }
             return out
         }
         throw Exception("net")
     }
+
+    @Suppress("DEPRECATION")
+    private fun signerDigests(ctx: Context, info: android.content.pm.PackageInfo?): Set<String> {
+        if (info == null) return emptySet()
+        val sigs = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.let { if (it.hasMultipleSigners()) it.apkContentsSigners else it.signingCertificateHistory } else info.signatures
+        return sigs.orEmpty().map { s -> MessageDigest.getInstance("SHA-256").digest(s.toByteArray()).joinToString("") { "%02x".format(it) } }.toSet()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun sameSigner(ctx: Context, apk: File): Boolean = try {
+        val flag = if (Build.VERSION.SDK_INT >= 28) android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES else android.content.pm.PackageManager.GET_SIGNATURES
+        val pm = ctx.packageManager
+        val mine = signerDigests(ctx, pm.getPackageInfo(ctx.packageName, flag))
+        val theirs = signerDigests(ctx, pm.getPackageArchiveInfo(apk.path, flag))
+        val newInfo = pm.getPackageArchiveInfo(apk.path, 0)
+        mine.isNotEmpty() && theirs.isNotEmpty() && mine.intersect(theirs).isNotEmpty() && newInfo?.packageName == ctx.packageName
+    } catch (e: Exception) { false }
+
+    /** Debug self-test: the signer check must accept the app's own APK. */
+    fun signerSelfTest(ctx: Context): Boolean = sameSigner(ctx, File(ctx.applicationInfo.sourceDir))
 
     fun install(ctx: Context, file: File) {
         val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", file)

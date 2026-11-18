@@ -55,38 +55,40 @@ object AutoScan {
 
     fun notificationsAllowed(ctx: Context): Boolean = NotificationManagerCompat.from(ctx).areNotificationsEnabled()
 
-    /** What is new since the previous scan and worth waking the user for. */
-    fun alertFor(d: DeviceData, r: ScanResult): Pair<String, String>? {
-        val prev = d.prev ?: return null
-        val newIocs = r.findings.filter { it.ioc && it.key !in prev.iocs }
+    /**
+     * Whether something new and important showed up since the previous scan. The notification itself never says
+     * what was found: it can show on the lock screen, and spyware with notification access reads it too, so naming
+     * a finding could warn whoever installed the spyware. The details are only shown inside the app.
+     */
+    fun alertFor(d: DeviceData, r: ScanResult): Boolean {
+        val prev = d.prev ?: return false
+        if (r.findings.any { it.ioc && it.key !in prev.iocs }) return true
         val byPkg = d.apps.associateBy { it.pkg }
-        val newAcc = d.accessibility.filter { it !in prev.acc && byPkg[it]?.system == false }
-        val newAdm = d.admins.filter { it !in prev.admins && byPkg[it]?.system == false }
-        val newSide = d.apps.filter { it.pkg !in prev.apps && Analyzer.isSideloaded(it, d.selfPkg) }
-        if (newIocs.isNotEmpty()) {
-            val title = if (newIocs.any { it.sev == Sev.CRIT }) L.t("Horus Shield: علامات اختراق على الهاتف", "Horus Shield: علامات اختراق على الموبايل", "Horus Shield: signs of compromise on this phone")
-            else L.t("Horus Shield: أمر جديد يحتاج إلى التحقق منه", "Horus Shield: حاجة جديدة محتاجة تتأكد منها", "Horus Shield: something new needs checking")
-            return title to newIocs.first().title
-        }
-        val lines = newAcc.map { L.t("صلاحية Accessibility جديدة: ", "صلاحية Accessibility جديدة: ", "New Accessibility access: ") + (byPkg[it]?.label ?: it) } +
-            newAdm.map { L.t("Device admin جديد: ", "Device admin جديد: ", "New device admin: ") + (byPkg[it]?.label ?: it) } +
-            newSide.map { L.t("تطبيق جديد من خارج المتجر: ", "تطبيق جديد من برّه المتجر: ", "New app from outside a store: ") + it.label }
-        if (lines.isEmpty()) return null
-        return L.t("Horus Shield: تغيّر شيء على الهاتف", "Horus Shield: اتغيّر حاجة على الموبايل", "Horus Shield: something changed on the phone") to lines.take(3).joinToString("\n")
+        if (d.accessibility.any { it !in prev.acc && byPkg[it]?.system == false }) return true
+        if (d.admins.any { it !in prev.admins && byPkg[it]?.system == false }) return true
+        return d.apps.any { it.pkg !in prev.apps && Analyzer.isSideloaded(it, d.selfPkg) }
     }
+
+    fun neutralTitle() = "Horus Shield"
+    fun neutralBody() = L.t("لديك نتيجة فحص جديدة. افتح التطبيق لمراجعتها.", "عندك نتيجة فحص جديدة. افتح البرنامج علشان تراجعها.", "You have a new scan result. Open the app to review it.")
 
     @SuppressLint("MissingPermission")
     fun notify(ctx: Context, title: String, body: String) {
         try {
             ensureChannel(ctx)
-            val open = Intent(ctx, MainActivity::class.java).putExtra("horus_open_result", true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            // a one-time token, so only this notification (not any other app) can make Horus Shield start a scan
+            val token = java.util.UUID.randomUUID().toString()
+            Prefs.put("openToken", token)
+            val open = Intent(ctx, MainActivity::class.java).putExtra("horus_open_result", token).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             val pi = PendingIntent.getActivity(ctx, 1, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             val n = NotificationCompat.Builder(ctx, CHANNEL)
                 .setSmallIcon(R.drawable.ic_notify)
                 .setContentTitle(title).setContentText(body.lines().first())
                 .setStyle(NotificationCompat.BigTextStyle().bigText(body))
                 .setPriority(NotificationCompat.PRIORITY_HIGH).setAutoCancel(true).setContentIntent(pi)
-                .setColor(0xFFF0B429.toInt())
+                .setColor(0xFFD4AF37.toInt())
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setPublicVersion(NotificationCompat.Builder(ctx, CHANNEL).setSmallIcon(R.drawable.ic_notify).setContentTitle("Horus Shield").build())
                 .build()
             NotificationManagerCompat.from(ctx).notify(42, n)
         } catch (e: Exception) { }
@@ -110,7 +112,7 @@ class ScanWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             Prefs.put("lastScore", r.score.toString()); Prefs.putLong("lastScanAt", r.atMillis)
             Prefs.put("lastVerdict", r.verdict); Prefs.putLong("lastAutoScan", r.atMillis)
             History.add(r, auto = true)
-            AutoScan.alertFor(d, r)?.let { (t, b) -> AutoScan.notify(c, t, b) }
+            if (AutoScan.alertFor(d, r)) AutoScan.notify(c, AutoScan.neutralTitle(), AutoScan.neutralBody())
             Result.success()
         } catch (e: Exception) { Result.retry() }
     }

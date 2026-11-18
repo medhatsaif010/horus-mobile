@@ -85,6 +85,11 @@ object App {
         }
         maybeCheckUpdate()
         UpdateCheck.schedule(ctx)
+        // evidence files hold full system logs: never keep them longer than a day
+        scope.launch(Dispatchers.IO) {
+            val old = System.currentTimeMillis() - 24 * 3600_000L
+            listOf("evidence", "updates").forEach { d -> java.io.File(ctx.cacheDir, d).listFiles()?.forEach { if (it.lastModified() < old) it.delete() } }
+        }
     }
 
     fun setLang(code: String) {

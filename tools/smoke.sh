@@ -22,9 +22,13 @@ shot 5-result-3 2
 adb shell input swipe 160 560 160 120 400
 shot 6-result-4 2
 adb shell am start -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "'عرض خاص http://nbe-eg.verify-account.top/login'" -n $A
-shot 7-link-danger 20
+sleep 4
+adb shell input tap 160 287
+shot 7-link-danger 18
 adb shell am start -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "https://www.google.com" -n $A
-shot 8-link-ok 20
+sleep 4
+adb shell input tap 160 287
+shot 8-link-ok 18
 adb shell am start -n $A --es horus_lang en --es horus_screen home
 shot 9-home-en 3
 adb shell am start -n $A --ez horus_autoscan true
@@ -174,6 +178,9 @@ adb shell pkill -INT screenrecord || true
 wait $REC || true
 sleep 2
 adb pull /sdcard/journey-ar.mp4 shots/journey-ar.mp4 || true
+adb shell am start -n $A --ez horus_selftest true
+sleep 6
+adb logcat -d -s HorusSelfTest > shots/selftest.txt || true
 adb shell dumpsys jobscheduler | grep -A3 "horussec" | head -20 > shots/jobs.txt
 adb shell dumpsys package $P | grep -E "versionName|versionCode|targetSdk" > shots/package.txt
 adb logcat -d -b crash | grep -iE "horussec|FATAL EXCEPTION" -A20 > shots/crash.txt || true

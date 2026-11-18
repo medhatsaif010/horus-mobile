@@ -136,14 +136,20 @@ echo '##END'
     }
 
     // ----------------------------------------------------------------- response actions (always after user confirmation)
-    fun stop(pkg: String) = Su.run("am force-stop $pkg", 15_000) != null
-    fun disable(pkg: String): Boolean { val ok = Su.run("pm disable-user --user 0 $pkg", 20_000)?.contains("disabled", true) == true; if (ok) remember("disable", pkg, 0); return ok }
+    /** Package names go into a root shell, so anything that is not a plain package name is refused. */
+    private val PKG = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$")
+    private fun safe(pkg: String) = PKG.matches(pkg) && pkg.length <= 255
+
+    fun stop(pkg: String) = safe(pkg) && Su.run("am force-stop $pkg", 15_000) != null
+    fun disable(pkg: String): Boolean { if (!safe(pkg)) return false; val ok = Su.run("pm disable-user --user 0 $pkg", 20_000)?.contains("disabled", true) == true; if (ok) remember("disable", pkg, 0); return ok }
     fun blockNet(pkg: String, uid: Int): Boolean {
+        if (!safe(pkg) || uid < 10000) return false
         val ok = Su.run("iptables -I OUTPUT -m owner --uid-owner $uid -j REJECT && ip6tables -I OUTPUT -m owner --uid-owner $uid -j REJECT && echo HORUS_OK", 15_000)?.contains("HORUS_OK") == true
         if (ok) remember("block", pkg, uid)
         return ok
     }
     fun undo(kind: String, pkg: String, uid: Int): Boolean {
+        if (!safe(pkg)) return false
         val ok = when (kind) {
             "disable" -> Su.run("pm enable $pkg", 20_000)?.contains("enabled", true) == true
             "block" -> Su.run("iptables -D OUTPUT -m owner --uid-owner $uid -j REJECT; ip6tables -D OUTPUT -m owner --uid-owner $uid -j REJECT; echo HORUS_OK", 15_000)?.contains("HORUS_OK") == true

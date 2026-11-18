@@ -16,8 +16,8 @@ android {
         versionName = "1.0." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
     }
 
-    // Test-build signing only. The keystore is public on purpose so every test
-    // build installs over the previous one. A Play release needs its own private key.
+    // Test-build signing only (debug builds for the emulator). The test keystore is public on purpose;
+    // release builds are signed only with the official key below.
     signingConfigs {
         // Official release key: only on the owner's machine and as a GitHub secret.
         val relFile = System.getenv("HORUS_RELEASE_KEYSTORE_FILE")
@@ -37,10 +37,19 @@ android {
         }
     }
     buildTypes {
-        debug { signingConfig = signingConfigs.getByName("debug") }
+        // The debug build is shrunk the same way as the release build, so the emulator test runs the same code.
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
         release {
-            isMinifyEnabled = false
-            signingConfig = signingConfigs.findByName("horusRelease") ?: signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Official key only. Without it the release build stays unsigned and cannot be installed,
+            // so a build signed with the public test key can never be shipped by mistake.
+            signingConfig = signingConfigs.findByName("horusRelease")
         }
     }
     lint {

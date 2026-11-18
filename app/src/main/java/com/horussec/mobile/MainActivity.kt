@@ -111,9 +111,10 @@ class MainActivity : ComponentActivity() {
             if (i.getBooleanExtra("horus_rootmode", false)) { App.rootDetected = true; App.enableRoot() }
             if (i.hasExtra("horus_auto")) App.setAuto(i.getIntExtra("horus_auto", 0))
             if (i.getBooleanExtra("horus_runworker", false)) androidx.work.WorkManager.getInstance(this).enqueue(androidx.work.OneTimeWorkRequestBuilder<ScanWorker>().build())
-            if (i.getBooleanExtra("horus_testnotify", false)) AutoScan.notify(this, L.t("Horus Shield: علامات اختراق على الهاتف", "Horus Shield: علامات اختراق على الموبايل", "Horus Shield: signs of compromise on the phone"), "Test")
+            if (i.getBooleanExtra("horus_testnotify", false)) AutoScan.notify(this, AutoScan.neutralTitle(), AutoScan.neutralBody())
             i.getStringExtra("horus_ask")?.let { com.horussec.mobile.ui.Ask.open(Screen.TOOLS); com.horussec.mobile.ui.Ask.ask(it) }
             i.getStringExtra("horus_asktopic")?.let { com.horussec.mobile.ui.Ask.open(Screen.RESULT, it) }
+            if (i.getBooleanExtra("horus_selftest", false)) Thread { android.util.Log.i("HorusSelfTest", "signer=" + Updater.signerSelfTest(this) + " local192=" + UrlCheck.isLocalTarget("192.168.1.1") + " localhost=" + UrlCheck.isLocalTarget("localhost") + " public=" + UrlCheck.isLocalTarget("google.com")) }.start()
             if (i.getBooleanExtra("horus_testupdnotify", false)) UpdateCheck.post(this, UpdateInfo(BuildConfig.VERSION_CODE + 1, "1.0.${BuildConfig.VERSION_CODE + 1}", "", "", ""))
             if (i.getBooleanExtra("horus_fakeupdate", false)) App.update = UpdateInfo(BuildConfig.VERSION_CODE + 1, "1.0.${BuildConfig.VERSION_CODE + 1}", "https://github.com/medhatsaif010/horus-mobile/releases/download/apk/HorusSec-Mobile.apk", "0".repeat(64), "تجربة: شاشة التحديث")
         }
@@ -123,17 +124,24 @@ class MainActivity : ComponentActivity() {
             App.checkUpdate(quiet = true)
             return
         }
-        if (i != null && i.getBooleanExtra("horus_open_result", false)) {
+        val openTok = i?.getStringExtra("horus_open_result")
+        if (i != null && openTok != null) {
             i.removeExtra("horus_open_result")
+            val ok = openTok == Prefs.str("openToken")
+            Prefs.put("openToken", null)
+            if (!ok) return
             App.refreshFromPrefs()
             App.startScan(deep = true)
             return
         }
         if (i?.action != Intent.ACTION_SEND) return
         val text = i.getStringExtra(Intent.EXTRA_TEXT) ?: return
+        // shared text only fills in the field: the check starts when the user taps Check link,
+        // so another app cannot make Horus Shield send requests on its behalf
+        val t = text.take(4000)
         App.linkResult = null
+        App.linkText = (UrlCheck.extract(t) ?: t).take(2048)
         App.screen = Screen.LINK
-        App.checkLink(UrlCheck.extract(text) ?: text)
         i.action = Intent.ACTION_MAIN
     }
 }

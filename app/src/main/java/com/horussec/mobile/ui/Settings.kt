@@ -132,7 +132,18 @@ private fun RootSection() {
         Secondary(if (App.rootBusy) L.t("بانتظار موافقة Magisk...", "مستني موافقة Magisk...", "Waiting for Magisk...") else L.t("فعّل وضع Root", "فعّل وضع Root", "Turn on root mode"), { App.enableRoot() }, Modifier.fillMaxWidth(), enabled = !App.rootBusy)
     } else {
         Text(L.t("مفعّل: يستخدمه الفحص العميق والفحص التلقائي.", "شغال: الفحص العميق والفحص التلقائي بيستخدموه.", "On: deep and automatic scans use it."), color = C.Safe, fontSize = 14.sp)
-        ActionText(if (App.rootBusy) L.t("جارٍ الجمع...", "بيجمع...", "Collecting...") else L.t("صدّر سجلات النظام كدليل", "صدّر سجلات النظام كدليل", "Export system logs as evidence")) { if (!App.rootBusy) App.exportEvidence(ctx) }
+        var askEvidence by remember { mutableStateOf(false) }
+        ActionText(if (App.rootBusy) L.t("جارٍ الجمع...", "بيجمع...", "Collecting...") else L.t("صدّر سجلات النظام كدليل", "صدّر سجلات النظام كدليل", "Export system logs as evidence")) { if (!App.rootBusy) askEvidence = true }
+        if (askEvidence) androidx.compose.material3.AlertDialog(
+            onDismissRequest = { askEvidence = false },
+            containerColor = C.Surface,
+            title = { Text(L.t("قبل التصدير", "قبل ما تصدّر", "Before you export"), color = C.Text, fontWeight = FontWeight.Bold) },
+            text = { Text(L.t("يحتوي الملف على سجلات النظام كاملة، وقد تتضمن بيانات من تطبيقات أخرى مثل أسماء حسابات أو رسائل خطأ. شاركه فقط مع شخص أو جهة تثق بها، ويُحذف من الهاتف تلقائيًا بعد يوم.",
+                "الملف فيه سجلات النظام كلها، وممكن يكون فيها بيانات من تطبيقات تانية زي أسماء حسابات أو رسايل أخطاء. شاركه بس مع حد أو جهة بتثق فيها، وبيتمسح من الموبايل لوحده بعد يوم.",
+                "The file holds the full system logs, which can include data from other apps such as account names or error messages. Share it only with a person or organisation you trust. It is deleted from the phone after a day."), color = C.Text2) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { askEvidence = false; App.exportEvidence(ctx) }) { Text(L.t("صدّر", "صدّر", "Export"), color = C.GoldLight) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { askEvidence = false }) { Text(L.t("إلغاء", "إلغاء", "Cancel"), color = C.Muted) } },
+        )
         if (App.rootUndo.isNotEmpty()) {
             Text(L.t("ما عطّله Horus Shield أو قطع عنه الإنترنت:", "اللي Horus Shield عطّله أو قطع عنه النت:", "Apps Horus Shield disabled or cut off:"), color = C.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             App.rootUndo.forEach { u ->
