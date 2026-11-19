@@ -114,9 +114,72 @@ object Analyzer {
 
         // 3. fake banking / wallet apps and the banking-trojan pattern
         val finHits = HashSet<String>()
+        // 3a. Egyptian official apps: signature changed since we first saw them, or official name from outside a store
+        val pins = EgApps.pins()
+        var genuine = 0
         for (a in user) {
-            if (!isSide(a) || a.pkg in stalkerPkgs) continue
-            val hit = intel.finance.firstOrNull { (_, rx) -> rx.containsMatchIn(a.pkg) || rx.containsMatchIn(a.label) } ?: continue
+            val brand = EgApps.brandOf(a.pkg)
+            if (brand == null && a.pkg !in EgApps.whatsappOfficial) continue
+            val label = brand?.let { L.t(it.nameAr, it.nameAr, it.name) } ?: "WhatsApp"
+            val pin = pins[a.pkg]
+            if (pin != null && a.certSha1.isNotEmpty() && a.certSha1.none { it.uppercase() in pin }) {
+                finHits.add(a.pkg)
+                findings.add(Finding(
+                    key = "eg-signature-changed:${a.pkg}", sev = Sev.CRIT, ioc = true, pkg = a.pkg,
+                    title = L.t("تغيّر توقيع تطبيق $label: النسخة الحالية ليست الرسمية", "توقيع تطبيق $label اتغيّر: النسخة اللي على الموبايل مش الرسمية", "$label's signature changed: the copy on the phone is not the official one"),
+                    why = L.t("سجّل Horus Shield توقيع هذا التطبيق حين كان النسخة الرسمية من المتجر. والتوقيع الآن مختلف، أي أن أحدًا استبدل التطبيق بنسخة تحمل الاسم نفسه. هذا أخطر أسلوب لسرقة الحسابات لأن الشكل لا يتغير.",
+                        "Horus Shield سجّل توقيع التطبيق ده لما كان النسخة الرسمية من المتجر. التوقيع دلوقتي مختلف، يعني حد بدّل التطبيق بنسخة بنفس الاسم. ده أخطر أسلوب لسرقة الحسابات لأن الشكل مبيتغيرش.",
+                        "Horus Shield recorded this app's signature when it was the official copy from the store. The signature is now different, so someone replaced the app with a copy that has the same name. This is the most dangerous way to steal accounts because nothing looks different."),
+                    todo = L.t("لا تفتحه ولا تُدخل فيه أي بيانات. احذفه ونزّل الرسمي من Google Play، واتصل بالبنك أو الشركة لتأمين حسابك وتغيير الرقم السري.", "متفتحوش ومتكتبش فيه أي بيانات. امسحه ونزّل الرسمي من Google Play، وكلّم البنك أو الشركة يأمّنوا حسابك وغيّر الـ PIN.",
+                        "Do not open it or type anything into it. Uninstall it, get the official app from Google Play, and call the bank or company to secure your account and change your PIN."),
+                    evidence = listOf("${L.t("التطبيق", "التطبيق", "App")}: ${name(a.pkg)} ${a.version}", "${L.t("المصدر", "المصدر", "Installer")}: ${inst(a)}",
+                        "${L.t("التوقيع المسجّل", "التوقيع المتسجّل", "Recorded signature")}: ${pin.first().take(20)}…", "${L.t("التوقيع الحالي", "التوقيع الحالي", "Current signature")}: ${a.certSha1.first().take(20)}…"),
+                    fixes = listOf(Fix.UNINSTALL, Fix.APP_SETTINGS),
+                ))
+            } else if (brand != null && isSide(a) && a.pkg !in stalkerPkgs) {
+                finHits.add(a.pkg)
+                findings.add(Finding(
+                    key = "eg-official-outside:${a.pkg}", sev = Sev.HIGH, ioc = true, pkg = a.pkg,
+                    title = L.t("تطبيق $label مثبّت من خارج المتجر", "تطبيق $label متسطّب من برّه المتجر", "$label app installed from outside the store"),
+                    why = L.t("يحمل الاسم الرسمي للتطبيق، لكنه لم يأتِ من متجر. والمحتالون ينشرون نسخًا مزيفة بالاسم نفسه تمامًا عبر روابط واتساب، فلا يمكن التأكد من أنه الرسمي.", "معاه الاسم الرسمي للتطبيق، بس مجاش من متجر. والنصابين بينشروا نسخ مزيفة بنفس الاسم بالظبط على لينكات واتساب، فمش هنقدر نتأكد إنه الرسمي.",
+                        "It carries the app's official name but did not come from a store. Scammers spread fake copies with exactly the same name through WhatsApp links, so there is no way to be sure it is the real one."),
+                    todo = L.t("احذفه وثبّت التطبيق من Google Play، ثم ادخل إليه من جديد. وإن كنت أدخلت بياناتك فيه، فاتصل بالبنك.", "امسحه وسطّب التطبيق من Google Play، وادخل عليه من جديد. ولو كنت دخلت بياناتك فيه، كلّم البنك.",
+                        "Uninstall it, install the app from Google Play and sign in again. If you entered your details in it, call the bank."),
+                    evidence = listOf("${L.t("التطبيق", "التطبيق", "App")}: ${name(a.pkg)} ${a.version}", "${L.t("المصدر", "المصدر", "Installer")}: ${inst(a)}", "${L.t("تاريخ التثبيت", "اتسطّب", "Installed")}: ${date(a.pkg)}"),
+                    fixes = listOf(Fix.UNINSTALL, Fix.APP_SETTINGS),
+                ))
+            } else if (brand == null && isSide(a)) {
+                findings.add(Finding(
+                    key = "whatsapp-outside:${a.pkg}", sev = Sev.MED, pkg = a.pkg,
+                    title = L.t("واتساب مثبّت من خارج المتجر", "واتساب متسطّب من برّه المتجر", "WhatsApp installed from outside the store"),
+                    why = L.t("يوفّر واتساب ملف APK رسميًا على موقعه، لكن النسخ المعدّلة تنتشر بالاسم نفسه.", "واتساب بيوفّر ملف APK رسمي على موقعه، بس النسخ المعدّلة بتنتشر بنفس الاسم.", "WhatsApp offers an official APK on its site, but modified copies spread under the same name."),
+                    todo = L.t("إن لم تنزّله من whatsapp.com بنفسك، فانسخ محادثاتك احتياطيًا وثبّته من Google Play.", "لو مش إنت اللي منزّله من whatsapp.com، اعمل نسخة احتياطية للمحادثات وسطّبه من Google Play.", "If you did not download it from whatsapp.com yourself, back up your chats and install it from Google Play."),
+                    evidence = listOf("${L.t("المصدر", "المصدر", "Installer")}: ${inst(a)}", "${L.t("تاريخ التثبيت", "اتسطّب", "Installed")}: ${date(a.pkg)}"),
+                    fixes = listOf(Fix.APP_SETTINGS),
+                ))
+            } else if (brand != null) genuine++
+        }
+        if (genuine > 0) verified.add(L.t("$genuine من تطبيقات البنوك والمحافظ المصرية نسخ رسمية من المتجر", "$genuine من تطبيقات البنوك والمحافظ المصرية نسخ رسمية من المتجر", "$genuine Egyptian bank and wallet apps are the official store versions"))
+        // 3b. modified WhatsApp (GB, YO, FM, Plus...)
+        for (a in user) {
+            if (a.pkg in stalkerPkgs || !EgApps.looksLikeWhatsapp(a)) continue
+            if (a.pkg !in EgApps.whatsappMods && !isSide(a)) continue
+            finHits.add(a.pkg)
+            findings.add(Finding(
+                key = "whatsapp-mod:${a.pkg}", sev = Sev.HIGH, pkg = a.pkg,
+                title = L.t("نسخة معدّلة من واتساب: ${a.label}", "نسخة واتساب معدّلة: ${a.label}", "Modified WhatsApp: ${a.label}"),
+                why = L.t("النسخ مثل GB وYO وواتساب بلس يصنعها أشخاص مجهولون، وتمر عبرها جميع رسائلك وصورك ورمز الدخول إلى حسابك. وقد استُخدم بعضها لنشر برامج تجسس، كما يحظر واتساب الحسابات التي تستخدمها.", "النسخ زي GB وYO وواتساب بلس بيعملها ناس مجهولين، وكل رسايلك وصورك وكود حسابك بيعدّوا عليها. وفيه منها اتستخدم لنشر برامج تجسس، وواتساب نفسه بيقفل الحسابات اللي بتستخدمها.",
+                    "Builds such as GB, YO and WhatsApp Plus are made by unknown people, and all your messages, photos and login code pass through them. Some have been used to spread spyware, and WhatsApp bans accounts that use them."),
+                todo = L.t("انسخ محادثاتك احتياطيًا، واحذف هذه النسخة، وثبّت واتساب الرسمي من Google Play، ثم فعّل التحقق بخطوتين.", "اعمل نسخة احتياطية للمحادثات، وامسح النسخة دي، وسطّب واتساب الرسمي من Google Play، وفعّل التحقق بخطوتين.",
+                    "Back up your chats, remove this build, install the official WhatsApp from Google Play, then turn on two-step verification."),
+                evidence = listOf("${L.t("التطبيق", "التطبيق", "App")}: ${name(a.pkg)} ${a.version}", "${L.t("المصدر", "المصدر", "Installer")}: ${inst(a)}"),
+                fixes = listOf(Fix.UNINSTALL, Fix.APP_SETTINGS),
+            ))
+        }
+        for (a in user) {
+            if (!isSide(a) || a.pkg in stalkerPkgs || a.pkg in finHits) continue
+            val hit = intel.finance.firstOrNull { (_, rx) -> rx.containsMatchIn(a.pkg) || rx.containsMatchIn(a.label) }
+                ?: EgApps.imitates(a)?.let { b -> L.t(b.nameAr, b.nameAr, b.name) to b.rx } ?: continue
             finHits.add(a.pkg)
             findings.add(Finding(
                 key = "fake-finance:${a.pkg}", sev = Sev.CRIT, ioc = true, pkg = a.pkg,

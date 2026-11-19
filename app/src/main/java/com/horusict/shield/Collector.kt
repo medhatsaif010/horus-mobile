@@ -185,6 +185,7 @@ object Collector {
     } catch (e: Exception) { null }
 
     fun saveSnapshot(d: DeviceData, r: ScanResult) {
+        EgApps.learn(d)
         val score = r.score
         val o = JSONObject()
         o.put("apps", JSONArray(d.apps.filter { !it.system }.map { it.pkg }))

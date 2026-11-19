@@ -16,7 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class Screen { HOME, SCANNING, RESULT, LINK, TOOLS, REPORTS, SETTINGS, ABOUT, LEGAL, ASK }
+enum class Screen { HOME, SCANNING, RESULT, LINK, TOOLS, REPORTS, SETTINGS, ABOUT, LEGAL, ASK, BANKAPPS, REPAIR, WHATSAPP, TRACKERS, HELP, SCAMREPORT }
 
 /** App-wide state. Lives as long as the process, so a rotation or theme change keeps the scan. */
 object App {
@@ -63,6 +63,16 @@ object App {
     /** protection score of the scan before the one on screen */
     var scoreBefore by mutableStateOf<Int?>(null)
 
+    // repair check
+    var repairBusy by mutableStateOf(false)
+    var repairSavedAt by mutableStateOf(0L)
+    var repairChanges: List<RepairCheck.Change>? by mutableStateOf(null)
+    // bank apps screen: a quick read of the phone, no full scan needed
+    var bankApps: List<EgApps.Found>? by mutableStateOf(null)
+    // scam reports
+    var reportsVersion by mutableIntStateOf(0)
+    var reportMsg by mutableStateOf("")
+
     fun chooseTheme(t: String) { theme = t; Prefs.put("theme", t) }
 
     fun init(c: Context) {
@@ -85,6 +95,8 @@ object App {
         }
         maybeCheckUpdate()
         UpdateCheck.schedule(ctx)
+        repairSavedAt = RepairCheck.savedAt(ctx)
+        if (ScamReports.list().any { !it.sent }) scope.launch { if (withContext(Dispatchers.IO) { ScamReports.sendPending() } > 0) reportsVersion++ }
         // evidence files hold full system logs: never keep them longer than a day
         scope.launch(Dispatchers.IO) {
             val old = System.currentTimeMillis() - 24 * 3600_000L
@@ -141,8 +153,54 @@ object App {
         linkResult = null
         scope.launch {
             val i = intel ?: withContext(Dispatchers.IO) { Intel.get(ctx) }.also { intel = it }
-            linkResult = withContext(Dispatchers.IO) { UrlCheck.check(text, i) }
+            var r = withContext(Dispatchers.IO) { UrlCheck.check(text, i) }
+            if (r.ok && r.domain.isNotEmpty() && ScamReports.reportedDomain(r.domain)) r = r.copy(
+                verdict = if (r.verdict == "danger") "danger" else "suspicious",
+                signals = listOf(Signal("bad", L.t("أنت أبلغت عن هذا الموقع من قبل على أنه احتيال.", "إنت بلّغت عن الموقع ده قبل كده إنه نصب.", "You reported this site as a scam before."))) + r.signals,
+            )
+            linkResult = r
             linkBusy = false
+        }
+    }
+
+    /** Reads the phone (quick, no deep scan) and fills the bank apps screen. */
+    fun loadBankApps() {
+        scope.launch {
+            val d = withContext(Dispatchers.IO) { Collector.collect(ctx, false) { } }
+            bankApps = withContext(Dispatchers.Default) { EgApps.found(d) }
+        }
+    }
+
+    fun repairSave() {
+        if (repairBusy) return
+        repairBusy = true
+        scope.launch {
+            withContext(Dispatchers.IO) { val d = Collector.collect(ctx, false) { }; RepairCheck.save(ctx, d) }
+            repairSavedAt = RepairCheck.savedAt(ctx); repairChanges = null
+            repairBusy = false
+        }
+    }
+
+    fun repairCompare() {
+        if (repairBusy) return
+        repairBusy = true
+        scope.launch {
+            repairChanges = withContext(Dispatchers.IO) { val d = Collector.collect(ctx, false) { }; RepairCheck.compare(ctx, d) }
+            repairBusy = false
+        }
+    }
+
+    fun repairClear() { RepairCheck.clear(ctx); repairSavedAt = 0L; repairChanges = null }
+
+    fun report(kind: String, value: String, channel: String) {
+        ScamReports.add(kind, value, channel)
+        reportsVersion++
+        reportMsg = L.t("جارٍ الإرسال...", "بيبعت...", "Sending...")
+        scope.launch {
+            val n = withContext(Dispatchers.IO) { ScamReports.sendPending() }
+            reportsVersion++
+            reportMsg = if (n > 0) L.t("وصل البلاغ. شكرًا لأنك تحمي غيرك.", "البلاغ وصل. شكرًا إنك بتحمي غيرك.", "Report received. Thank you for protecting others.")
+                else L.t("حُفظ البلاغ على هاتفك، وسيُرسل تلقائيًا عند توفر الاتصال.", "البلاغ اتحفظ على موبايلك، وهيتبعت لوحده أول ما النت يبقى متاح.", "Saved on your phone. It will be sent automatically when a connection is available.")
         }
     }
 

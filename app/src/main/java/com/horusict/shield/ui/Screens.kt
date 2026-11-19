@@ -637,6 +637,26 @@ fun ToolsScreen() = TabScreen(Tab.TOOLS) {
     Column(Modifier.fillMaxSize()) {
         TopBar(L.t("الأدوات", "الأدوات", "Tools"), null)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            HCard(Modifier.fillMaxWidth(), border = C.Danger.copy(alpha = 0.5f), onClick = { App.screen = Screen.HELP }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Ico(R.drawable.ic_lifebuoy, C.Danger, 26.dp); Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(L.t("أحدهم يراقبني", "حد بيراقبني", "Someone is watching me"), color = C.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(L.t("خطة آمنة خطوة بخطوة، وأرقام المساعدة في مصر", "خطة آمنة خطوة بخطوة، وأرقام المساعدة في مصر", "A safe plan step by step, and helplines in Egypt"), color = C.Muted, fontSize = 12.sp)
+                    }
+                    Ico(R.drawable.ic_chev_left, C.Gold, 18.dp)
+                }
+            }
+            SectionTitle(L.t("الحماية من الاحتيال", "الحماية من النصب", "Scam protection"))
+            HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)) {
+                ListRow(L.t("تطبيقات البنوك والمحافظ", "تطبيقات البنوك والمحافظ", "Bank and wallet apps"), L.t("هل إنستاباي والبنك والمحفظة على هاتفك هي النسخ الرسمية؟", "إنستاباي والبنك والمحفظة اللي على موبايلك رسميين ولا لأ؟", "Are InstaPay, your bank and wallet apps the official ones?"), icon = R.drawable.ic_bank, onClick = { App.bankApps = null; App.screen = Screen.BANKAPPS })
+                ListRow(L.t("سرقة واتساب وتحويل المكالمات", "سرقة واتساب وتحويل المكالمات", "WhatsApp theft and call forwarding"), L.t("اكشف تحويل مكالماتك وأمّن حساب واتساب", "اكشف تحويل مكالماتك وأمّن حساب واتساب", "Find call forwarding and secure your WhatsApp"), icon = R.drawable.ic_phone, onClick = { App.screen = Screen.WHATSAPP })
+                ListRow(L.t("أبلغ عن احتيال", "بلّغ عن نصب", "Report a scam"), L.t("رابط أو رقم احتيال وصلك", "لينك أو رقم نصب جالك", "A scam link or number you received"), icon = R.drawable.ic_flag, onClick = { App.reportMsg = ""; App.screen = Screen.SCAMREPORT })
+                ListRow(L.t("قبل الصيانة وبعدها", "قبل التصليح وبعده", "Before and after repair"), if (App.repairSavedAt > 0) L.t("الحالة محفوظة · قارن الآن", "الحالة متحفظة · قارن دلوقتي", "State saved · compare now") else L.t("احفظ حالة الهاتف قبل تسليمه لمحل صيانة", "احفظ حالة الموبايل قبل ما تسلّمه لمحل تصليح", "Save the phone's state before handing it in"),
+                    icon = R.drawable.ic_wrench, onClick = { App.screen = Screen.REPAIR })
+                ListRow(L.t("أجهزة التتبع بالبلوتوث", "أجهزة التتبع بالبلوتوث", "Bluetooth trackers"), L.t("AirTag وSmartTag وTile القريبة منك", "AirTag وSmartTag وTile اللي جنبك", "AirTag, SmartTag and Tile near you"), icon = R.drawable.ic_radar, onClick = { App.screen = Screen.TRACKERS }, last = true)
+            }
+            SectionTitle(L.t("أدوات أخرى", "أدوات تانية", "More tools"))
             HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)) {
                 ListRow(L.t("اسأل حورس", "اسأل حورس", "Ask Horus"), L.t("أسئلة عن التطبيق ونصائح أمنية، دون إنترنت", "أسئلة عن البرنامج ونصايح أمنية، من غير نت", "Questions about the app and security tips, offline"), icon = R.drawable.ic_chat, onClick = { Ask.open(Screen.TOOLS) })
                 ListRow(L.t("فحص الروابط", "فحص اللينكات", "Link check"), L.t("قبل أن تفتح أي رابط من واتساب أو رسالة", "قبل ما تفتح أي لينك من واتساب أو رسالة", "Before you open a link from WhatsApp or a message"), icon = R.drawable.ic_link, onClick = { App.linkResult = null; App.screen = Screen.LINK })

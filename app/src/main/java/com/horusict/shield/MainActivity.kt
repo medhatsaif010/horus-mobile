@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalLayoutDirection provides if (L.ar) LayoutDirection.Rtl else LayoutDirection.Ltr) {
                     Surface(Modifier.fillMaxSize(), color = C.Bg, contentColor = C.Text) {
                         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                            BackHandler(enabled = App.screen != Screen.HOME && App.screen != Screen.SCANNING) { App.screen = when (App.screen) { Screen.LEGAL -> Screen.ABOUT; Screen.ABOUT -> Screen.SETTINGS; Screen.LINK -> Screen.TOOLS; Screen.ASK -> com.horusict.shield.ui.Ask.back; else -> Screen.HOME } }
+                            BackHandler(enabled = App.screen != Screen.HOME && App.screen != Screen.SCANNING) { App.screen = when (App.screen) { Screen.LEGAL -> Screen.ABOUT; Screen.ABOUT -> Screen.SETTINGS; Screen.LINK, Screen.BANKAPPS, Screen.REPAIR, Screen.WHATSAPP, Screen.TRACKERS, Screen.HELP, Screen.SCAMREPORT -> Screen.TOOLS; Screen.ASK -> com.horusict.shield.ui.Ask.back; else -> Screen.HOME } }
                             androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(1400); App.splash = false }
                             if (App.splash) com.horusict.shield.ui.SplashScreen() else when (App.screen) {
                                 Screen.HOME -> HomeScreen()
@@ -79,6 +79,12 @@ class MainActivity : ComponentActivity() {
                                 Screen.ABOUT -> AboutScreen()
                                 Screen.LEGAL -> com.horusict.shield.ui.LegalScreen()
                                 Screen.ASK -> com.horusict.shield.ui.AskScreen()
+                                Screen.BANKAPPS -> com.horusict.shield.ui.BankAppsScreen()
+                                Screen.REPAIR -> com.horusict.shield.ui.RepairScreen()
+                                Screen.WHATSAPP -> com.horusict.shield.ui.WhatsAppScreen()
+                                Screen.TRACKERS -> com.horusict.shield.ui.TrackersScreen()
+                                Screen.HELP -> com.horusict.shield.ui.HelpScreen()
+                                Screen.SCAMREPORT -> com.horusict.shield.ui.ScamReportScreen()
                             }
                         }
                     }
@@ -106,7 +112,7 @@ class MainActivity : ComponentActivity() {
             // test hooks used by the automated smoke test (debug builds only)
             i.getStringExtra("horus_lang")?.let { App.setLang(it) }
             i.getStringExtra("horus_theme")?.let { App.chooseTheme(it) }
-            when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME; "legal" -> App.screen = Screen.LEGAL; "settings" -> App.screen = Screen.SETTINGS; "link" -> App.screen = Screen.LINK; "tools" -> App.screen = Screen.TOOLS; "reports" -> App.screen = Screen.REPORTS; "ask" -> com.horusict.shield.ui.Ask.open(Screen.TOOLS) }
+            when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME; "legal" -> App.screen = Screen.LEGAL; "settings" -> App.screen = Screen.SETTINGS; "link" -> App.screen = Screen.LINK; "tools" -> App.screen = Screen.TOOLS; "reports" -> App.screen = Screen.REPORTS; "ask" -> com.horusict.shield.ui.Ask.open(Screen.TOOLS); "bankapps" -> App.screen = Screen.BANKAPPS; "repair" -> App.screen = Screen.REPAIR; "whatsapp" -> App.screen = Screen.WHATSAPP; "trackers" -> App.screen = Screen.TRACKERS; "help" -> App.screen = Screen.HELP; "scamreport" -> App.screen = Screen.SCAMREPORT }
             if (i.getBooleanExtra("horus_autoscan", false)) App.startScan(deep = i.getBooleanExtra("horus_deep", true))
             if (i.getBooleanExtra("horus_rootmode", false)) { App.rootDetected = true; App.enableRoot() }
             if (i.hasExtra("horus_auto")) App.setAuto(i.getIntExtra("horus_auto", 0))
@@ -115,6 +121,19 @@ class MainActivity : ComponentActivity() {
             i.getStringExtra("horus_ask")?.let { com.horusict.shield.ui.Ask.open(Screen.TOOLS); com.horusict.shield.ui.Ask.ask(it) }
             i.getStringExtra("horus_asktopic")?.let { com.horusict.shield.ui.Ask.open(Screen.RESULT, it) }
             if (i.getBooleanExtra("horus_selftest", false)) Thread { android.util.Log.i("HorusSelfTest", "signer=" + Updater.signerSelfTest(this) + " local192=" + UrlCheck.isLocalTarget("192.168.1.1") + " localhost=" + UrlCheck.isLocalTarget("localhost") + " public=" + UrlCheck.isLocalTarget("google.com")) }.start()
+            // new features: write what they found to the log so the smoke test can assert on it
+            if (i.getBooleanExtra("horus_repairsave", false)) Thread { RepairCheck.save(this, Collector.collect(this, false) { }); android.util.Log.i("HorusTest", "repair-saved") }.start()
+            if (i.getBooleanExtra("horus_repaircompare", false)) { App.repairSavedAt = RepairCheck.savedAt(this); App.screen = Screen.REPAIR; App.repairCompare() }
+            if (i.getBooleanExtra("horus_dump", false)) Thread {
+                val d = Collector.collect(this, false) { }
+                val r = Analyzer.analyze(d, Intel.get(this))
+                Collector.saveSnapshot(d, r)
+                r.findings.forEach { f -> android.util.Log.i("HorusTest", "finding ${f.sev} ${f.key}") }
+                EgApps.found(d).forEach { f -> android.util.Log.i("HorusTest", "bankapp ${f.app.pkg} ${f.status}") }
+                RepairCheck.compare(this, d)?.forEach { c -> android.util.Log.i("HorusTest", "repair ${c.sev} ${c.pkg ?: "-"} ${c.text}") }
+                android.util.Log.i("HorusTest", "normalize link=" + ScamReports.normalize("link", "nbe-eg.verify.top/x") + " phone=" + ScamReports.normalize("phone", "010 1234 5678") + " bad=" + ScamReports.normalize("link", "hello"))
+                android.util.Log.i("HorusTest", "dump-done")
+            }.start()
             if (i.getBooleanExtra("horus_testupdnotify", false)) UpdateCheck.post(this, UpdateInfo(BuildConfig.VERSION_CODE + 1, "1.0.${BuildConfig.VERSION_CODE + 1}", "", "", ""))
             if (i.getBooleanExtra("horus_fakeupdate", false)) App.update = UpdateInfo(BuildConfig.VERSION_CODE + 1, "1.0.${BuildConfig.VERSION_CODE + 1}", "https://github.com/medhatsaif010/horus-mobile/releases/download/apk/HorusShield.apk", "0".repeat(64), "تجربة: شاشة التحديث")
         }

@@ -194,6 +194,66 @@ shot 23-spoof-result 20
 adb shell input swipe 160 560 160 120 400
 shot 23b-spoof-result 2
 adb uninstall com.example.spooftest || true
+# ---- new features: Egyptian fake apps, modified WhatsApp, before/after repair ----
+adb shell am start -n $A --es horus_lang eg --ez horus_repairsave true --es horus_screen tools
+shot 30-tools-eg 6
+adb shell input swipe 160 560 160 160 500
+shot 30b-tools-eg 2
+mkapk() {  # $1 package  $2 label  $3 extra permission (optional)
+  d=/tmp/t-$1; mkdir -p $d
+  perm=""; [ -n "$3" ] && perm="<uses-permission android:name=\"$3\"/>"
+  printf '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="%s">%s<application android:hasCode="false" android:label="%s"/></manifest>' "$1" "$perm" "$2" > $d/AndroidManifest.xml
+  "${BT}aapt2" link -o $d/u.apk -I "${PLAT}android.jar" --manifest $d/AndroidManifest.xml --min-sdk-version 26 --target-sdk-version 34 && \
+  "${BT}apksigner" sign --ks app/horus-test.keystore --ks-pass pass:android --out $d/s.apk $d/u.apk && adb install $d/s.apk
+}
+mkapk com.example.fakepay "انستاباي" android.permission.READ_SMS
+mkapk com.egyptianbanks.instapay "InstaPay Egypt"
+mkapk com.gbwhatsapp "GBWhatsApp"
+adb logcat -c
+adb shell am start -n $A --es horus_lang en --ez horus_dump true
+sleep 15
+adb logcat -d -s HorusTest > shots/features.txt || true
+cat shots/features.txt
+adb shell am start -n $A --es horus_lang eg --es horus_screen bankapps
+shot 31-bankapps-eg 6
+adb shell am start -n $A --es horus_lang eg --ez horus_repaircompare true
+shot 32-repair-eg 8
+adb shell input swipe 160 560 160 160 500
+shot 32b-repair-eg 2
+adb shell am start -n $A --es horus_lang eg --es horus_screen whatsapp
+shot 33-whatsapp-eg 3
+adb shell input swipe 160 560 160 160 500
+shot 33b-whatsapp-eg 2
+adb shell am start -n $A --es horus_lang ar --es horus_screen trackers
+shot 34-trackers-ar 3
+adb shell am start -n $A --es horus_lang eg --es horus_screen help
+shot 35-help-eg 3
+adb shell input swipe 160 560 160 160 500
+shot 35b-help-eg 2
+adb shell am start -n $A --es horus_lang en --es horus_screen help
+shot 35c-help-en 3
+adb shell am start -n $A --es horus_lang eg --es horus_screen scamreport
+shot 36-report-eg 3
+adb shell am start -n $A --es horus_lang en --ez horus_autoscan true
+shot 37-result-fakes 20
+adb shell input swipe 160 560 160 120 400
+shot 37b-result-fakes 2
+adb uninstall com.example.fakepay || true
+adb uninstall com.egyptianbanks.instapay || true
+adb uninstall com.gbwhatsapp || true
+# assertions: the build fails if a detection is missing
+FAIL=0
+need() { if grep -q "$1" shots/features.txt; then echo "PASS $1" >> shots/assert.txt; else echo "FAIL $1" >> shots/assert.txt; FAIL=1; fi; }
+need "fake-finance:com.example.fakepay"
+need "eg-official-outside:com.egyptianbanks.instapay"
+need "whatsapp-mod:com.gbwhatsapp"
+need "bankapp com.egyptianbanks.instapay OUTSIDE"
+need "repair HIGH com.example.fakepay"
+need "repair .* com.gbwhatsapp"
+need "phone=01012345678"
+need "bad=null"
+need "dump-done"
+cat shots/assert.txt
 adb shell am start -n $A --ez horus_selftest true
 sleep 6
 adb logcat -d -s HorusSelfTest > shots/selftest.txt || true
@@ -202,4 +262,5 @@ adb shell dumpsys package $P | grep -E "versionName|versionCode|targetSdk" > sho
 adb logcat -d -b crash | grep -iE "horusict|FATAL EXCEPTION" -A20 > shots/crash.txt || true
 adb logcat -d | grep -iE "horusict|AndroidRuntime|FATAL" > shots/logcat.txt || true
 pidof_out=$(adb shell pidof $P); echo "pid: $pidof_out" >> shots/package.txt
-exit 0
+if grep -q "FATAL EXCEPTION" shots/crash.txt; then echo "FAIL crash" >> shots/assert.txt; FAIL=1; fi
+exit $FAIL
