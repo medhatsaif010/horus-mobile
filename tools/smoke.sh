@@ -5,6 +5,19 @@ mkdir -p shots
 P=com.horusict.shield
 A=$P/.MainActivity
 shot() { sleep "$2"; adb exec-out screencap -p > "shots/$1.png"; }
+# tap the first on-screen element whose text contains $1 (robust to layout changes)
+tapt() {
+  adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb pull /sdcard/ui.xml /tmp/ui.xml >/dev/null 2>&1
+  xy=$(python3 - "$1" <<'PY'
+import re,sys,xml.etree.ElementTree as E
+t=sys.argv[1]
+for n in E.parse('/tmp/ui.xml').iter('node'):
+    if t in (n.get('text') or '') or t in (n.get('content-desc') or ''):
+        a,b,c,d=map(int,re.findall(r'\d+',n.get('bounds'))); print((a+c)//2,(b+d)//2); break
+PY
+)
+  if [ -n "$xy" ]; then adb shell input tap $xy; else echo "tapt: '$1' not found"; return 1; fi
+}
 adb wait-for-device
 adb shell settings put global window_animation_scale 0
 adb install -r app-debug.apk
@@ -99,7 +112,7 @@ sleep 4
 adb shell screenrecord --bit-rate 6000000 --time-limit 150 /sdcard/journey.mp4 &
 REC=$!
 sleep 3
-adb shell input tap 160 418          # Scan device
+tapt "Scan my phone" || tapt "افحص موبايلي" || true
 sleep 10
 adb shell input swipe 160 500 160 260 900
 sleep 3
@@ -111,7 +124,7 @@ adb shell input tap 30 52            # back to Home
 sleep 3
 adb shell input tap 120 600          # Tools tab
 sleep 3
-adb shell input tap 160 125          # Link check
+tapt "Check a link" || tapt "افحص لينك" || tapt "افحص رابطًا" || true
 sleep 3
 adb shell input tap 160 222          # link field
 sleep 1
@@ -142,7 +155,7 @@ sleep 4
 adb shell screenrecord --bit-rate 6000000 --time-limit 150 /sdcard/journey-ar.mp4 &
 REC=$!
 sleep 3
-adb shell input tap 160 418          # Scan device
+tapt "Scan my phone" || tapt "افحص موبايلي" || true
 sleep 10
 adb shell input swipe 160 500 160 260 900
 sleep 3
@@ -154,7 +167,7 @@ adb shell input tap 290 52            # back to Home
 sleep 3
 adb shell input tap 200 600          # Tools tab
 sleep 3
-adb shell input tap 160 125          # Link check
+tapt "Check a link" || tapt "افحص لينك" || tapt "افحص رابطًا" || true
 sleep 3
 adb shell input tap 160 175          # link field
 sleep 1
@@ -195,6 +208,14 @@ adb shell input swipe 160 560 160 120 400
 shot 23b-spoof-result 2
 adb uninstall com.example.spooftest || true
 # ---- new features: Egyptian fake apps, modified WhatsApp, before/after repair ----
+adb shell am start -n $A --es horus_lang eg --es horus_screen home
+shot 29-home-eg 4
+adb shell input swipe 160 560 160 160 500
+shot 29b-home-eg 2
+adb shell am start -n $A --es horus_lang en --es horus_screen home
+shot 29c-home-en 4
+adb shell input swipe 160 560 160 160 500
+shot 29d-home-en 2
 adb shell am start -n $A --es horus_lang eg --ez horus_repairsave true --es horus_screen tools
 shot 30-tools-eg 6
 adb shell input swipe 160 560 160 160 500

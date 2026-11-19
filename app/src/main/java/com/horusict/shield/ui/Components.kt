@@ -298,12 +298,12 @@ fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
                 ) {
                     Ico(when (t) {
                         Tab.SECURITY -> if (sel) R.drawable.ic_home_filled else R.drawable.ic_home
-                        Tab.TOOLS -> R.drawable.ic_tools
+                        Tab.TOOLS -> R.drawable.ic_grid
                         Tab.REPORTS -> R.drawable.ic_report
                         Tab.SETTINGS -> R.drawable.ic_gear
                     }, col, 24.dp)
                     Text(
-                        when (t) { Tab.SECURITY -> L.t("الرئيسية", "الرئيسية", "Home"); Tab.TOOLS -> L.t("الأدوات", "الأدوات", "Tools"); Tab.REPORTS -> L.t("التقارير", "التقارير", "Reports"); Tab.SETTINGS -> L.t("الإعدادات", "الإعدادات", "Settings") },
+                        when (t) { Tab.SECURITY -> L.t("الرئيسية", "الرئيسية", "Home"); Tab.TOOLS -> L.t("الخدمات", "الخدمات", "Services"); Tab.REPORTS -> L.t("التقارير", "التقارير", "Reports"); Tab.SETTINGS -> L.t("الإعدادات", "الإعدادات", "Settings") },
                         color = col, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
                     )
                 }

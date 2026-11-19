@@ -72,6 +72,8 @@ fun SettingsScreen() = TabScreen(Tab.SETTINGS) {
                 }
                 ListRow(L.t("مراقبة استهلاك البيانات", "مراقبة استهلاك البيانات", "Data-usage monitoring"), if (App.usageAccess) L.t("مسموح", "مسموح", "Allowed") else L.t("يلزم إذن Usage access", "محتاج إذن Usage access", "Needs Usage access"),
                     subColor = if (App.usageAccess) C.Safe else C.GoldLight, onClick = { DeepScan.openUsageAccess(ctx) })
+                ListRow(L.t("قاعدة التهديدات", "قاعدة التهديدات", "Threat intel"), if (App.intelBusy) L.t("جارٍ التحديث...", "بيحدّث...", "Updating...") else App.intelMsg.ifEmpty { L.t("التاريخ: ", "التاريخ: ", "Date: ") + (App.intel?.date ?: "—") + L.t(" · اضغط للتحديث", " · دوس للتحديث", " · tap to update") },
+                    onClick = { App.updateIntel() })
                 ListRow(L.t("أدوات الخبراء (Root)", "أدوات الخبراء (Root)", "Expert tools (root)"), if (App.rootOn) L.t("مفعّل", "شغال", "On") else if (App.rootDetected) L.t("متاح", "متاح", "Available") else L.t("معطّل · الهاتف ليس عليه Root", "مقفول · الموبايل مش عليه Root", "Off · the phone is not rooted"),
                     onClick = { rootOpen = !rootOpen }, last = !rootOpen)
                 if (rootOpen) Column(Modifier.padding(bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { RootSection() }

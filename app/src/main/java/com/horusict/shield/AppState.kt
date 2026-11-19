@@ -24,6 +24,10 @@ object App {
     lateinit var ctx: Context
 
     var screen by mutableStateOf(Screen.HOME)
+    /** where the back arrow of a service screen returns to: the tab it was opened from */
+    var back by mutableStateOf(Screen.TOOLS)
+    private val tabs = setOf(Screen.HOME, Screen.TOOLS, Screen.REPORTS, Screen.SETTINGS)
+    fun go(s: Screen) { if (screen in tabs) back = screen; screen = s }
     /** the launch screen with the logo, shown once per process start */
     var splash by mutableStateOf(true)
     var scanStep by mutableIntStateOf(0)

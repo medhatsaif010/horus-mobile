@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalLayoutDirection provides if (L.ar) LayoutDirection.Rtl else LayoutDirection.Ltr) {
                     Surface(Modifier.fillMaxSize(), color = C.Bg, contentColor = C.Text) {
                         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                            BackHandler(enabled = App.screen != Screen.HOME && App.screen != Screen.SCANNING) { App.screen = when (App.screen) { Screen.LEGAL -> Screen.ABOUT; Screen.ABOUT -> Screen.SETTINGS; Screen.LINK, Screen.BANKAPPS, Screen.REPAIR, Screen.WHATSAPP, Screen.TRACKERS, Screen.HELP, Screen.SCAMREPORT -> Screen.TOOLS; Screen.ASK -> com.horusict.shield.ui.Ask.back; else -> Screen.HOME } }
+                            BackHandler(enabled = App.screen != Screen.HOME && App.screen != Screen.SCANNING) { App.screen = when (App.screen) { Screen.LEGAL -> Screen.ABOUT; Screen.ABOUT -> Screen.SETTINGS; Screen.LINK, Screen.BANKAPPS, Screen.REPAIR, Screen.WHATSAPP, Screen.TRACKERS, Screen.HELP, Screen.SCAMREPORT -> App.back; Screen.ASK -> com.horusict.shield.ui.Ask.back; else -> Screen.HOME } }
                             androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(1400); App.splash = false }
                             if (App.splash) com.horusict.shield.ui.SplashScreen() else when (App.screen) {
                                 Screen.HOME -> HomeScreen()

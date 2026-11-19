@@ -66,7 +66,7 @@ private val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
 
 /** Scrolling page body under a top bar, used by all the screens below. */
 @Composable
-private fun Page(title: String, back: Screen = Screen.TOOLS, extra: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+private fun Page(title: String, back: Screen = App.back, extra: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     Backdrop {
         TopBar(title, { App.screen = back }, extra)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -224,7 +224,7 @@ fun WhatsAppScreen() {
         Step(6, L.t("نسخة واتساب الرسمية", "نسخة واتساب الرسمية", "The official WhatsApp"),
             L.t("النسخ المعدّلة مثل GB وواتساب بلس خطر على حسابك. يكشفها الفحص، وتظهر حالتها في شاشة تطبيقات البنوك والمحافظ.", "النسخ المعدّلة زي GB وواتساب بلس خطر على حسابك. الفحص بيكشفها، وحالتها بتظهر في شاشة تطبيقات البنوك والمحافظ.",
                 "Modified builds such as GB and WhatsApp Plus put your account at risk. The scan finds them, and their status shows on the Bank and wallet apps screen.")) {
-            ActionText(L.t("تطبيقات البنوك والمحافظ", "تطبيقات البنوك والمحافظ", "Bank and wallet apps")) { App.screen = Screen.BANKAPPS }
+            ActionText(L.t("تطبيقات البنوك والمحافظ", "تطبيقات البنوك والمحافظ", "Bank and wallet apps")) { App.go(Screen.BANKAPPS) }
         }
         Text(L.t("رموز التحويل معيارية وتعمل على فودافون وأورنج واتصالات (e&) ووي. وإن لم يرد الرمز، فاتصل بخدمة عملاء شركتك.", "أكواد التحويل معيارية وبتشتغل على فودافون وأورنج واتصالات (e&) ووي. لو الكود مردّش، كلّم خدمة عملاء شركتك.",
             "The forwarding codes are standard and work on Vodafone, Orange, e& and WE. If a code does not answer, call your operator."), color = C.Muted, fontSize = 12.sp)
@@ -279,7 +279,7 @@ fun TrackersScreen() {
             "ظهور جهاز من شبكة Apple Find My طبيعي لو جنبك حد معاه آيفون أو سماعات AirPods. لكن لو نفس الجهاز ظهر وفضل قريب منك جدًا في أماكن مختلفة، أو فضل معاك بعد ما بعدت عن الناس، دوّر في شنطتك وهدومك وعربيتك: قرّب لحد ما الإشارة تبقى «قريب منك جدًا».",
             "An Apple Find My device is normal if someone near you has an iPhone or AirPods. But if the same device stays very close to you in different places, or stays with you after you move away from people, search your bag, clothes and car: move until the signal says \"Very close to you\"."), color = C.Text2, fontSize = 13.sp)
         Text(L.t("إن وجدت جهازًا لا تعرفه، فلا ترمه فورًا إن شعرت بخطر: صوّره، واذهب إلى مكان آمن، واطلب المساعدة.", "لو لقيت جهاز مش بتاعك، متترموش على طول لو حاسس بخطر: صوّره، وروح مكان آمن، واطلب مساعدة.", "If you find one that is not yours and you feel at risk, do not throw it away straight away: photograph it, go somewhere safe, and get help."), color = C.Text2, fontSize = 13.sp)
-        ActionText(L.t("مساعدة: أحدهم يراقبني", "مساعدة: حد بيراقبني", "Help: someone is watching me")) { App.screen = Screen.HELP }
+        ActionText(L.t("مساعدة: أحدهم يراقبني", "مساعدة: حد بيراقبني", "Help: someone is watching me")) { App.go(Screen.HELP) }
     }
 }
 
@@ -315,10 +315,10 @@ fun HelpScreen() {
             L.t("غيّر كلمة مرور Google وفيسبوك، وراجع الأجهزة المسجّلة في حسابك، وأوقف مشاركة الموقع في خرائط Google، وفعّل التحقق بخطوتين في واتساب.", "غيّر باسورد Google وفيسبوك، وراجع الأجهزة المتسجلة على حسابك، واقفل مشاركة الموقع في خرائط Google، وفعّل التحقق بخطوتين في واتساب.",
                 "Change your Google and Facebook passwords, review the devices signed in to your account, turn off location sharing in Google Maps, and turn on WhatsApp two-step verification.")) {
             ActionText(L.t("أجهزة حساب Google", "أجهزة حساب Google", "Google account devices")) { openUrl(ctx, "https://myaccount.google.com/device-activity") }
-            ActionText(L.t("واتساب وتحويل المكالمات", "واتساب وتحويل المكالمات", "WhatsApp and call forwarding")) { App.screen = Screen.WHATSAPP }
+            ActionText(L.t("واتساب وتحويل المكالمات", "واتساب وتحويل المكالمات", "WhatsApp and call forwarding")) { App.go(Screen.WHATSAPP) }
         }
         Step(4, L.t("ابحث عن أجهزة تتبع", "دوّر على أجهزة تتبع", "Look for trackers"), L.t("قد يُخفى AirTag أو جهاز تتبع في الحقيبة أو السيارة.", "ممكن يتخبّى AirTag أو جهاز تتبع في الشنطة أو العربية.", "An AirTag or tracker may be hidden in a bag or car.")) {
-            ActionText(L.t("ابدأ البحث", "ابدأ الدوّير", "Start searching")) { App.screen = Screen.TRACKERS }
+            ActionText(L.t("ابدأ البحث", "ابدأ الدوّير", "Start searching")) { App.go(Screen.TRACKERS) }
         }
         Step(5, L.t("اطلب المساعدة", "اطلب مساعدة", "Get help"), L.t("هذه الجهات تتلقى البلاغات بسرية:", "الجهات دي بتستقبل البلاغات بسرية:", "These services take reports confidentially:")) {
             ActionText(L.t("المجلس القومي للمرأة: 15115", "المجلس القومي للمرأة: 15115", "National Council for Women: 15115")) { dial(ctx, "15115") }
