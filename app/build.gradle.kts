@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.horussec.mobile"
+    namespace = "com.horusict.shield"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.horussec.mobile"
+        applicationId = "com.horusict.shield"
         minSdk = 26
         targetSdk = 35
         versionCode = (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1)

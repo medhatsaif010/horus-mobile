@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Horus ICT (horusict.com). All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or distribution is prohibited.
  */
-package com.horussec.mobile.ui
+package com.horusict.shield.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -58,20 +58,20 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.horussec.mobile.Actions
-import com.horussec.mobile.App
-import com.horussec.mobile.BuildConfig
-import com.horussec.mobile.Check
-import com.horussec.mobile.CheckState
-import com.horussec.mobile.Finding
-import com.horussec.mobile.Fix
-import com.horussec.mobile.History
-import com.horussec.mobile.Intel
-import com.horussec.mobile.L
-import com.horussec.mobile.R
-import com.horussec.mobile.ScanResult
-import com.horussec.mobile.Screen
-import com.horussec.mobile.Updater
+import com.horusict.shield.Actions
+import com.horusict.shield.App
+import com.horusict.shield.BuildConfig
+import com.horusict.shield.Check
+import com.horusict.shield.CheckState
+import com.horusict.shield.Finding
+import com.horusict.shield.Fix
+import com.horusict.shield.History
+import com.horusict.shield.Intel
+import com.horusict.shield.L
+import com.horusict.shield.R
+import com.horusict.shield.ScanResult
+import com.horusict.shield.Screen
+import com.horusict.shield.Updater
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -644,7 +644,7 @@ fun ToolsScreen() = TabScreen(Tab.TOOLS) {
                 ListRow(L.t("من يستطيع سماعك ورؤيتك", "مين يقدر يسمعك ويشوفك", "Who can hear and see you"), exp?.let { L.t("${it.apps.size} تطبيقات لديها ${it.label}", "${it.apps.size} تطبيقات معاها ${it.label}", "${it.apps.size} apps with ${it.label}") } ?: L.t("الميكروفون والكاميرا والموقع", "المايك والكاميرا والموقع", "Microphone, camera and location"),
                     icon = R.drawable.ic_mic, onClick = { openPermissionManager(ctx) })
                 ListRow(L.t("استهلاك البيانات", "استهلاك البيانات", "Data usage"), if (App.usageAccess) L.t("مسموح للفحص العميق", "مسموح للفحص العميق", "Allowed for the deep scan") else L.t("يلزم إذن Usage access", "محتاج إذن Usage access", "Needs Usage access"),
-                    subColor = if (App.usageAccess) C.Safe else C.GoldLight, icon = R.drawable.ic_bars, onClick = { com.horussec.mobile.DeepScan.openUsageAccess(ctx) })
+                    subColor = if (App.usageAccess) C.Safe else C.GoldLight, icon = R.drawable.ic_bars, onClick = { com.horusict.shield.DeepScan.openUsageAccess(ctx) })
                 ListRow(L.t("قاعدة التهديدات", "قاعدة التهديدات", "Threat intel"), if (App.intelBusy) L.t("جارٍ التحديث...", "بيحدّث...", "Updating...") else App.intelMsg.ifEmpty { L.t("التاريخ: ", "التاريخ: ", "Date: ") + (App.intel?.date ?: "—") },
                     icon = R.drawable.ic_shield_check, onClick = { App.updateIntel() })
                 ListRow(L.t("أدوات الخبراء (Root)", "أدوات الخبراء (Root)", "Expert tools (root)"), if (App.rootOn) L.t("مفعّل", "شغال", "On") else if (App.rootDetected) L.t("متاح", "متاح", "Available") else L.t("معطّل · الهاتف ليس عليه Root", "مقفول · الموبايل مش عليه Root", "Off · the phone is not rooted"),

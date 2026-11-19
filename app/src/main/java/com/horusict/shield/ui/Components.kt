@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Horus ICT (horusict.com). All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or distribution is prohibited.
  */
-package com.horussec.mobile.ui
+package com.horusict.shield.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -54,10 +54,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.horussec.mobile.CheckState
-import com.horussec.mobile.L
-import com.horussec.mobile.R
-import com.horussec.mobile.Sev
+import com.horusict.shield.CheckState
+import com.horusict.shield.L
+import com.horusict.shield.R
+import com.horusict.shield.Sev
 
 /**
  * Horus Shield palette. Dark (default): night navy, Egyptian gold, Nile teal. Light: papyrus.

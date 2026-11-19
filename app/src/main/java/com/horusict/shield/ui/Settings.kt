@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Horus ICT (horusict.com). All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or distribution is prohibited.
  */
-package com.horussec.mobile.ui
+package com.horusict.shield.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,14 +19,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.horussec.mobile.App
-import com.horussec.mobile.AutoScan
-import com.horussec.mobile.BuildConfig
-import com.horussec.mobile.DeepScan
-import com.horussec.mobile.L
-import com.horussec.mobile.Prefs
-import com.horussec.mobile.R
-import com.horussec.mobile.Screen
+import com.horusict.shield.App
+import com.horusict.shield.AutoScan
+import com.horusict.shield.BuildConfig
+import com.horusict.shield.DeepScan
+import com.horusict.shield.L
+import com.horusict.shield.Prefs
+import com.horusict.shield.R
+import com.horusict.shield.Screen
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

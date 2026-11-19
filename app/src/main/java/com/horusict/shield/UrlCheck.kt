@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Horus ICT (horusict.com). All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or distribution is prohibited.
  */
-package com.horussec.mobile
+package com.horusict.shield
 
 import org.json.JSONObject
 import java.net.HttpURLConnection

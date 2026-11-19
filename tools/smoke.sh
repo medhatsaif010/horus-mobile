@@ -2,7 +2,7 @@
 # Installs the APK on the CI emulator, drives the main flows and saves screenshots + logs.
 set -x
 mkdir -p shots
-P=com.horussec.mobile
+P=com.horusict.shield
 A=$P/.MainActivity
 shot() { sleep "$2"; adb exec-out screencap -p > "shots/$1.png"; }
 adb wait-for-device
@@ -197,9 +197,9 @@ adb uninstall com.example.spooftest || true
 adb shell am start -n $A --ez horus_selftest true
 sleep 6
 adb logcat -d -s HorusSelfTest > shots/selftest.txt || true
-adb shell dumpsys jobscheduler | grep -A3 "horussec" | head -20 > shots/jobs.txt
+adb shell dumpsys jobscheduler | grep -A3 "horusict" | head -20 > shots/jobs.txt
 adb shell dumpsys package $P | grep -E "versionName|versionCode|targetSdk" > shots/package.txt
-adb logcat -d -b crash | grep -iE "horussec|FATAL EXCEPTION" -A20 > shots/crash.txt || true
-adb logcat -d | grep -iE "horussec|AndroidRuntime|FATAL" > shots/logcat.txt || true
+adb logcat -d -b crash | grep -iE "horusict|FATAL EXCEPTION" -A20 > shots/crash.txt || true
+adb logcat -d | grep -iE "horusict|AndroidRuntime|FATAL" > shots/logcat.txt || true
 pidof_out=$(adb shell pidof $P); echo "pid: $pidof_out" >> shots/package.txt
 exit 0

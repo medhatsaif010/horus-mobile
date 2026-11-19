@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Horus ICT (horusict.com). All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or distribution is prohibited.
  */
-package com.horussec.mobile.ui
+package com.horusict.shield.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,9 +30,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.horussec.mobile.App
-import com.horussec.mobile.L
-import com.horussec.mobile.Screen
+import com.horusict.shield.App
+import com.horusict.shield.L
+import com.horusict.shield.Screen
 
 object Owner {
     const val company = "Horus ICT"
