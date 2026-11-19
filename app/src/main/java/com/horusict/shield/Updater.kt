@@ -60,14 +60,14 @@ object Updater {
     fun download(ctx: Context, info: UpdateInfo, progress: (Int) -> Unit): File {
         val dir = File(ctx.cacheDir, "updates").apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() }
-        val out = File(dir, "HorusSec-Mobile-${info.code}.apk")
+        val out = File(dir, "HorusShield-${info.code}.apk")
         var cur = URL(info.url)
         for (hop in 0 until 6) {
             if (cur.protocol != "https" || !allowedHosts.containsMatchIn(cur.host)) throw Exception("net")
             val c = cur.openConnection() as HttpURLConnection
             c.instanceFollowRedirects = false
             c.connectTimeout = 15000; c.readTimeout = 60000
-            c.setRequestProperty("User-Agent", "HorusSec-Mobile")
+            c.setRequestProperty("User-Agent", "HorusShield")
             val code = c.responseCode
             if (code in 300..399) {
                 val loc = c.getHeaderField("Location") ?: throw Exception("net")

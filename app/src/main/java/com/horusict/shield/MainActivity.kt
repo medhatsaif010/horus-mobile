@@ -116,7 +116,7 @@ class MainActivity : ComponentActivity() {
             i.getStringExtra("horus_asktopic")?.let { com.horusict.shield.ui.Ask.open(Screen.RESULT, it) }
             if (i.getBooleanExtra("horus_selftest", false)) Thread { android.util.Log.i("HorusSelfTest", "signer=" + Updater.signerSelfTest(this) + " local192=" + UrlCheck.isLocalTarget("192.168.1.1") + " localhost=" + UrlCheck.isLocalTarget("localhost") + " public=" + UrlCheck.isLocalTarget("google.com")) }.start()
             if (i.getBooleanExtra("horus_testupdnotify", false)) UpdateCheck.post(this, UpdateInfo(BuildConfig.VERSION_CODE + 1, "1.0.${BuildConfig.VERSION_CODE + 1}", "", "", ""))
-            if (i.getBooleanExtra("horus_fakeupdate", false)) App.update = UpdateInfo(BuildConfig.VERSION_CODE + 1, "1.0.${BuildConfig.VERSION_CODE + 1}", "https://github.com/medhatsaif010/horus-mobile/releases/download/apk/HorusSec-Mobile.apk", "0".repeat(64), "تجربة: شاشة التحديث")
+            if (i.getBooleanExtra("horus_fakeupdate", false)) App.update = UpdateInfo(BuildConfig.VERSION_CODE + 1, "1.0.${BuildConfig.VERSION_CODE + 1}", "https://github.com/medhatsaif010/horus-mobile/releases/download/apk/HorusShield.apk", "0".repeat(64), "تجربة: شاشة التحديث")
         }
         if (i != null && i.getBooleanExtra("horus_open_about", false)) {
             i.removeExtra("horus_open_about")

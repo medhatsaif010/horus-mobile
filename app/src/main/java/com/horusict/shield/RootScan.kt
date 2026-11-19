@@ -178,7 +178,7 @@ echo '##END'
         val dir = File(ctx.cacheDir, "evidence").apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() }
         val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date())
-        val f = File(dir, "HorusSec-evidence-$stamp.txt")
+        val f = File(dir, "HorusShield-evidence-$stamp.txt")
         f.writeText("Horus Shield - root evidence $stamp\n\n$summary\n\n$scan\n\n$logs")
         val sha = java.security.MessageDigest.getInstance("SHA-256").digest(f.readBytes()).joinToString("") { "%02x".format(it) }
         File(dir, f.name + ".sha256").writeText("$sha  ${f.name}\n")

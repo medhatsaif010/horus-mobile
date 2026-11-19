@@ -113,19 +113,19 @@ jobs:
           RELEASES_REPO: medhatsaif010/horus-mobile-releases
         run: |
           [ -n "$GH_TOKEN" ] || { echo "::error::RELEASES_TOKEN is missing"; exit 1; }
-          cp app-release.apk HorusSec-Mobile.apk
-          SHA=$(sha256sum HorusSec-Mobile.apk | cut -d' ' -f1)
-          echo "$SHA  HorusSec-Mobile.apk" > HorusSec-Mobile.apk.sha256
+          cp app-release.apk HorusShield.apk
+          SHA=$(sha256sum HorusShield.apk | cut -d' ' -f1)
+          echo "$SHA  HorusShield.apk" > HorusShield.apk.sha256
           python3 - <<PY
           import json
           notes = open("release-notes.txt", encoding="utf-8").read().strip() if __import__("os").path.exists("release-notes.txt") else ""
           json.dump({"versionCode": ${{ github.run_number }}, "versionName": "1.0.${{ github.run_number }}",
-                     "url": "https://github.com/$RELEASES_REPO/releases/download/apk/HorusSec-Mobile.apk",
+                     "url": "https://github.com/$RELEASES_REPO/releases/download/apk/HorusShield.apk",
                      "sha256": "$SHA", "notes": notes}, open("version.json", "w", encoding="utf-8"), ensure_ascii=False)
           PY
           cat version.json
           echo "Publishing to $RELEASES_REPO"
           gh release delete apk -R "$RELEASES_REPO" -y --cleanup-tag || true
-          gh release create apk -R "$RELEASES_REPO" HorusSec-Mobile.apk HorusSec-Mobile.apk.sha256 version.json --prerelease \
+          gh release create apk -R "$RELEASES_REPO" HorusShield.apk HorusShield.apk.sha256 version.json --prerelease \
             --title "Horus Shield 1.0.${{ github.run_number }}" \
             --notes-file release-notes.txt

@@ -11,7 +11,7 @@
 ## البناء
 
 كل push على `main` بيبني APK على GitHub Actions، وبينشره في Release اسمه `apk`:
-`https://github.com/medhatsaif010/horus-mobile/releases/download/apk/HorusSec-Mobile.apk`
+`https://github.com/medhatsaif010/horus-mobile/releases/download/apk/HorusShield.apk`
 
 لو البناء فشل، السجل بيتنشر في Release اسمه `build-log`.
 

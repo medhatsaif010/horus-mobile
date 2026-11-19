@@ -143,7 +143,7 @@ object Intel {
             val c = cur.openConnection() as HttpURLConnection
             c.instanceFollowRedirects = false
             c.connectTimeout = 15000; c.readTimeout = 60000
-            c.setRequestProperty("User-Agent", "HorusSec-Mobile")
+            c.setRequestProperty("User-Agent", "HorusShield")
             val code = c.responseCode
             if (code in 300..399) {
                 val loc = c.getHeaderField("Location") ?: throw Exception("redirect without location")
