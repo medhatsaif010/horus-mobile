@@ -263,27 +263,28 @@ fun HomeScreen() = TabScreen(Tab.SECURITY) {
                         HorusEye(Modifier.width(32.dp).padding(bottom = 4.dp))
                     }
                     Spacer(Modifier.height(4.dp))
-                    Text(if (last == null) L.t("لم يُجرَ أي فحص بعد", "لسه مفيش فحص", "No scan yet") else verdictTitle(v), color = C.Text, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(if (last == null) L.t("أجرِ أول فحص", "اعمل أول فحص", "Run a first scan") else L.t("الحماية $last%", "الحماية $last%", "Protection $last%") + "  ·  " + agoLabel(App.lastScanAt).takeIf { last != null }.orEmpty(), color = C.Muted, fontSize = 13.sp)
+                    Text(if (last == null) L.t("لم يُجرَ أي فحص بعد", "لسه مفيش فحص", "No scan yet") else verdictTitle(v), color = C.Text, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center, maxLines = 2, modifier = Modifier.widthIn(max = 140.dp))
+                    Text(if (last == null) L.t("أجرِ أول فحص", "اعمل أول فحص", "Run a first scan") else L.t("الحماية $last%", "الحماية $last%", "Protection $last%"), color = C.Muted, fontSize = 13.sp)
                 }
             }
+            if (last != null) Text(agoLabel(App.lastScanAt), color = C.Dim, fontSize = 12.sp)
             UpdateBanner()
             Primary(L.t("افحص موبايلي", "افحص موبايلي", "Scan my phone"), { App.startScan(deep = true) }, Modifier.width(260.dp))
             if (App.result != null) Text(L.t("اعرض آخر تقرير", "اعرض آخر تقرير", "View the last report"), color = C.GoldLight, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { App.screen = Screen.RESULT }.padding(horizontal = 16.dp, vertical = 8.dp))
             // what do you want to do? the services, by what the person is worried about
             Text(L.t("ماذا تريد أن تفعل؟", "عايز تعمل إيه؟", "What do you want to do?"), color = C.Gold, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HomeTile(R.drawable.ic_link, L.t("افحص رابطًا", "افحص لينك", "Check a link"), L.t("قبل أن تفتحه", "قبل ما تفتحه", "Before you open it"), Modifier.weight(1f)) { App.linkResult = null; App.go(Screen.LINK) }
                 HomeTile(R.drawable.ic_bank, L.t("تطبيقات البنوك", "تطبيقات البنوك", "Bank apps"), L.t("رسمية أم مزيفة؟", "رسمية ولا مزيفة؟", "Official or fake?"), Modifier.weight(1f)) { App.bankApps = null; App.go(Screen.BANKAPPS) }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HomeTile(R.drawable.ic_phone, L.t("واتساب والمكالمات", "واتساب والمكالمات", "WhatsApp and calls"), L.t("امنع سرقة حسابك", "امنع سرقة حسابك", "Stop account theft"), Modifier.weight(1f)) { App.go(Screen.WHATSAPP) }
                 HomeTile(R.drawable.ic_flag, L.t("أبلغ عن احتيال", "بلّغ عن نصب", "Report a scam"), L.t("رابط أو رقم", "لينك أو رقم", "A link or number"), Modifier.weight(1f)) { App.reportMsg = ""; App.go(Screen.SCAMREPORT) }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 HomeTile(R.drawable.ic_wrench, L.t("قبل الصيانة وبعدها", "قبل التصليح وبعده", "Repair check"), if (App.repairSavedAt > 0) L.t("قارن الآن", "قارن دلوقتي", "Compare now") else L.t("احفظ حالة الهاتف", "احفظ حالة الموبايل", "Save the phone's state"), Modifier.weight(1f)) { App.go(Screen.REPAIR) }
-                HomeTile(R.drawable.ic_radar, L.t("أجهزة التتبع", "أجهزة التتبع", "Trackers"), L.t("AirTag وغيره", "AirTag وغيره", "AirTag and others"), Modifier.weight(1f)) { App.go(Screen.TRACKERS) }
+                HomeTile(R.drawable.ic_radar, L.t("أجهزة التتبع", "أجهزة التتبع", "Trackers"), L.t("مثل AirTag", "زي AirTag", "AirTag and others"), Modifier.weight(1f)) { App.go(Screen.TRACKERS) }
             }
             HCard(Modifier.fillMaxWidth(), border = C.Danger.copy(alpha = 0.55f), onClick = { App.go(Screen.HELP) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -302,7 +303,7 @@ fun HomeScreen() = TabScreen(Tab.SECURITY) {
 
 @Composable
 private fun HomeTile(icon: Int, label: String, hint: String, modifier: Modifier, onClick: () -> Unit) {
-    HCard(modifier.heightIn(min = 104.dp), onClick = onClick, padding = PaddingValues(vertical = 12.dp, horizontal = 10.dp)) {
+    HCard(modifier.fillMaxHeight().heightIn(min = 104.dp), onClick = onClick, padding = PaddingValues(vertical = 12.dp, horizontal = 10.dp)) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Ico(icon, C.Gold, 28.dp)
             Text(label, color = C.Text, fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 2)
@@ -660,7 +661,7 @@ fun ToolsScreen() = TabScreen(Tab.TOOLS) {
             SectionTitle(L.t("خصوصيتك", "خصوصيتك", "Your privacy"))
             HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)) {
                 ListRow(L.t("أحدهم يراقبني", "حد بيراقبني", "Someone is watching me"), L.t("خطة آمنة خطوة بخطوة، وأرقام المساعدة في مصر", "خطة آمنة خطوة بخطوة، وأرقام المساعدة في مصر", "A safe plan step by step, and helplines in Egypt"), subColor = C.Danger, icon = R.drawable.ic_lifebuoy, onClick = { App.go(Screen.HELP) })
-                ListRow(L.t("أجهزة التتبع بالبلوتوث", "أجهزة التتبع بالبلوتوث", "Bluetooth trackers"), L.t("AirTag وSmartTag وTile القريبة منك", "AirTag وSmartTag وTile اللي جنبك", "AirTag, SmartTag and Tile near you"), icon = R.drawable.ic_radar, onClick = { App.go(Screen.TRACKERS) })
+                ListRow(L.t("أجهزة التتبع بالبلوتوث", "أجهزة التتبع بالبلوتوث", "Bluetooth trackers"), L.t("أجهزة مثل AirTag قد تكون قريبة منك", "أجهزة زي AirTag ممكن تكون جنبك", "AirTag, SmartTag and Tile near you"), icon = R.drawable.ic_radar, onClick = { App.go(Screen.TRACKERS) })
                 val exp = App.result?.exposure?.firstOrNull()
                 ListRow(L.t("من يستطيع سماعك ورؤيتك", "مين يقدر يسمعك ويشوفك", "Who can hear and see you"), exp?.let { L.t("${it.apps.size} تطبيقات لديها ${it.label}", "${it.apps.size} تطبيقات معاها ${it.label}", "${it.apps.size} apps with ${it.label}") } ?: L.t("الميكروفون والكاميرا والموقع", "المايك والكاميرا والموقع", "Microphone, camera and location"),
                     icon = R.drawable.ic_mic, onClick = { openPermissionManager(ctx) }, last = true)

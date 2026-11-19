@@ -240,8 +240,8 @@ fun TrackersScreen() {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Trackers.scanning) { while (Trackers.scanning) { now = System.currentTimeMillis(); delay(1000) } }
     Page(L.t("أجهزة التتبع بالبلوتوث", "أجهزة التتبع بالبلوتوث", "Bluetooth trackers")) {
-        Intro(L.t("يبحث عن أجهزة التتبع الصغيرة القريبة منك، مثل AirTag وSamsung SmartTag وTile، والتي قد تُخفى في حقيبة أو سيارة لمعرفة مكانك. يستمع فقط، ولا يتصل بأي جهاز.",
-            "بيدوّر على أجهزة التتبع الصغيرة اللي جنبك، زي AirTag وSamsung SmartTag وTile، اللي ممكن تتخبّى في شنطة أو عربية علشان حد يعرف مكانك. بيسمع بس، ومش بيتصل بأي جهاز.",
+        Intro(L.t("يبحث عن أجهزة التتبع الصغيرة القريبة منك، مثل AirTag أو SmartTag أو Tile، والتي قد تُخفى في حقيبة أو سيارة لمعرفة مكانك. يستمع فقط، ولا يتصل بأي جهاز.",
+            "بيدوّر على أجهزة التتبع الصغيرة اللي جنبك، زي AirTag أو SmartTag أو Tile، اللي ممكن تتخبّى في شنطة أو عربية علشان حد يعرف مكانك. بيسمع بس، ومش بيتصل بأي جهاز.",
             "Looks for small trackers near you, such as AirTag, Samsung SmartTag and Tile, that can be hidden in a bag or car to follow where you go. It only listens and never connects to anything."))
         if (Trackers.scanning) {
             Busy(L.t("يبحث الآن... تحرّك ببطء حول حقيبتك أو سيارتك", "بيدوّر دلوقتي... اتحرك براحة حوالين شنطتك أو عربيتك", "Searching... move slowly around your bag or car") + "  ·  ${((now - Trackers.startedAt) / 1000).coerceAtLeast(0)}s")
