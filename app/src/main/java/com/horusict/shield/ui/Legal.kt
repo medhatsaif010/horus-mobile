@@ -39,6 +39,7 @@ object Owner {
     const val year = "2026"
     const val website = "https://horusict.com"
     const val contact = "horusict.com"
+    const val developerLinkedIn = "https://www.linkedin.com/in/medhat-saif/"
     fun name() = company
     fun copyright() = "© $year " + name() + ". " + L.t("جميع الحقوق محفوظة.", "كل الحقوق محفوظة.", "All rights reserved.")
 }

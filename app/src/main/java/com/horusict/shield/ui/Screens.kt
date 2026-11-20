@@ -744,6 +744,9 @@ fun AboutScreen() {
                 Secondary(L.t("التراخيص ومصادر البيانات", "التراخيص ومصادر البيانات", "Licences and data sources"), { LegalPage.page = 2; App.screen = Screen.LEGAL }, Modifier.fillMaxWidth())
                 fun open(u: String) { try { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { } }
                 ActionText(L.t("الموقع الرسمي: horusict.com", "الموقع الرسمي: horusict.com", "Official website: horusict.com")) { open(Owner.website) }
+                Hairline(C.Line.copy(alpha = 0.6f))
+                Text(L.t("اعرف المطوّر", "اعرف المطوّر", "Meet the developer"), color = C.Muted, fontSize = 13.sp)
+                ActionText("LinkedIn") { open(Owner.developerLinkedIn) }
             }
             HCard(Modifier.fillMaxWidth()) {
                 Text(L.t("قاعدة التهديدات", "قاعدة التهديدات", "Threat intel"), color = C.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
