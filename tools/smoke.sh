@@ -50,6 +50,8 @@ adb shell am start -n $A --es horus_screen about
 shot 11-about-en 3
 adb shell am start -n $A --es horus_lang ar --es horus_screen about
 shot 11b-about-ar 3
+adb shell input swipe 160 560 160 260 500
+shot 11f-about-dev 2
 adb shell am start -n $A --es horus_screen legal
 shot 11c-legal-ar 3
 adb shell am start -n $A --es horus_lang eg --es horus_screen home
