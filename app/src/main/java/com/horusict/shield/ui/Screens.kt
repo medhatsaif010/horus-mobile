@@ -731,7 +731,7 @@ fun AboutScreen() {
                 Text("v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", color = C.Muted, fontSize = 13.sp, style = Ltr)
             }
             HCard(Modifier.fillMaxWidth()) {
-                Text(L.t("التطوير والملكية", "تطوير وملكية", "Developed and owned by"), color = C.Muted, fontSize = 13.sp)
+                Text(L.t("المالك", "المالك", "Owned by"), color = C.Muted, fontSize = 13.sp)
                 Text(Owner.name(), color = C.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Text(L.t("صُنع في مصر", "صُنع في مصر", "Made in Egypt"), color = C.GoldLight, fontSize = 14.sp)
                 Text(Owner.copyright(), color = C.Text2, fontSize = 13.sp)
@@ -744,6 +744,10 @@ fun AboutScreen() {
                 Secondary(L.t("التراخيص ومصادر البيانات", "التراخيص ومصادر البيانات", "Licences and data sources"), { LegalPage.page = 2; App.screen = Screen.LEGAL }, Modifier.fillMaxWidth())
                 fun open(u: String) { try { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { } }
                 ActionText(L.t("الموقع الرسمي: horusict.com", "الموقع الرسمي: horusict.com", "Official website: horusict.com")) { open(Owner.website) }
+                Hairline(C.Line.copy(alpha = 0.6f))
+                Text(L.t("المطوّر", "المطوّر", "Developer"), color = C.Muted, fontSize = 13.sp)
+                Text(Owner.developer(), color = C.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                ActionText("LinkedIn") { open(Owner.developerLinkedIn) }
             }
             HCard(Modifier.fillMaxWidth()) {
                 Text(L.t("قاعدة التهديدات", "قاعدة التهديدات", "Threat intel"), color = C.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold)

@@ -39,6 +39,9 @@ object Owner {
     const val year = "2026"
     const val website = "https://horusict.com"
     const val contact = "horusict.com"
+    /** developer credit: the person who built the app (ownership stays with the company) */
+    const val developerLinkedIn = "https://www.linkedin.com/in/medhat-saif/"
+    fun developer() = L.t("مدحت سيف", "مدحت سيف", "Medhat Saif")
     fun name() = company
     fun copyright() = "© $year " + name() + ". " + L.t("جميع الحقوق محفوظة.", "كل الحقوق محفوظة.", "All rights reserved.")
 }
