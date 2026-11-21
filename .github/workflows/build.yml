@@ -5,6 +5,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# One build at a time: two publishes running together could leave the download in a half-updated state.
+concurrency:
+  group: build-and-publish
+  cancel-in-progress: false
+
 # Least privilege: each job asks only for what it needs.
 permissions:
   contents: read
