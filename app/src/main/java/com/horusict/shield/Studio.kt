@@ -69,7 +69,11 @@ object Studio {
                 brands = (0 until a.length()).mapNotNull { i ->
                     a.optJSONObject(i)?.let { b ->
                         val pk = b.optJSONArray("packages") ?: JSONArray()
-                        EgApps.Brand(b.optString("name"), b.optString("nameAr"), (0 until pk.length()).map { pk.optString(it) }.toSet(), Regex(b.optString("match"), RegexOption.IGNORE_CASE))
+                        val name = b.optString("name")
+                        // a blank pattern would match every app; fall back to the brand's own name
+                        val match = b.optString("match").ifBlank { Regex.escape(name) }
+                        if (name.isBlank() || pk.length() == 0) null
+                        else EgApps.Brand(name, b.optString("nameAr"), (0 until pk.length()).map { pk.optString(it) }.toSet(), Regex(match, RegexOption.IGNORE_CASE))
                     }
                 }.ifEmpty { null }
             } catch (e: Exception) { brands = null }
