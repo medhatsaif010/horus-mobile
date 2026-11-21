@@ -44,6 +44,26 @@ object UpdateCheck {
         if (post(ctx, info)) Prefs.put("notifiedUpdate", info.code.toString())
     }
 
+    /** Posts an urgent alert from Horus Studio once per alert id. Plain text, opens the app. */
+    fun alertOnce(ctx: Context, a: Studio.Alert) {
+        if (Prefs.str("alertNotified") == a.id || Studio.dismissed(a)) return
+        try {
+            val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (nm.getNotificationChannel(CHANNEL) == null) nm.createNotificationChannel(NotificationChannel(CHANNEL, L.t("تحديثات التطبيق", "تحديثات التطبيق", "App updates"), NotificationManager.IMPORTANCE_DEFAULT))
+            val open = Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            val pi = PendingIntent.getActivity(ctx, 3, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            val text = Studio.text(a)
+            val n = NotificationCompat.Builder(ctx, CHANNEL)
+                .setSmallIcon(R.drawable.ic_notify)
+                .setContentTitle(L.t("تحذير من Horus Shield", "تحذير من Horus Shield", "Warning from Horus Shield"))
+                .setContentText(text).setStyle(NotificationCompat.BigTextStyle().bigText(text))
+                .setAutoCancel(true).setContentIntent(pi).setColor(0xFFD4AF37.toInt())
+                .build()
+            NotificationManagerCompat.from(ctx).notify(44, n)
+            Prefs.put("alertNotified", a.id)
+        } catch (e: Exception) { }
+    }
+
     fun post(ctx: Context, info: UpdateInfo): Boolean = try {
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (nm.getNotificationChannel(CHANNEL) == null) {
@@ -71,7 +91,10 @@ class UpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         val c = applicationContext
         Prefs.init(c)
         L.load()
+        Studio.load(c)
         return try {
+            // an urgent warning from Horus Studio: shown once as a notification
+            Studio.fetchAlert(force = true)?.let { UpdateCheck.alertOnce(c, it) }
             Updater.check()?.let { UpdateCheck.notifyOnce(c, it) }
             Result.success()
         } catch (e: Exception) { Result.retry() }

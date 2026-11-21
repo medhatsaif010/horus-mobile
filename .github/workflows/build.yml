@@ -3,12 +3,15 @@ name: Build APK
 on:
   push:
     branches: [main]
+  pull_request:          # Horus Studio change requests: build + emulator test + preview, never published
+    branches: [main]
   workflow_dispatch:
 
-# One build at a time: two publishes running together could leave the download in a half-updated state.
+# One publish at a time: two publishes running together could leave the download in a half-updated state.
+# Previews (pull requests) run in their own group, and a newer push to the same request cancels the older one.
 concurrency:
-  group: build-and-publish
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('preview-{0}', github.event.pull_request.number) || 'build-and-publish' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Least privilege: each job asks only for what it needs.
 permissions:
@@ -94,9 +97,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p shots
-          gh release delete smoke -y --cleanup-tag || true
-          gh release create smoke --prerelease --title "Smoke test #${{ github.run_number }}" --notes "Emulator screenshots and logs for ${{ github.sha }}" || true
-          for f in shots/*; do [ -s "$f" ] && { gh release upload smoke "$f" --clobber || echo "upload failed: $f"; }; done
+          # main -> "smoke"; a pull request -> "preview-pr-N" with the preview APK, for Horus Studio to show
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            TAG="preview-pr-${{ github.event.pull_request.number }}"
+            TITLE="Preview for change request #${{ github.event.pull_request.number }} (build ${{ github.run_number }})"
+            cp app-debug.apk shots/HorusShield-preview.apk
+          else
+            TAG="smoke"; TITLE="Smoke test #${{ github.run_number }}"
+          fi
+          gh release delete "$TAG" -y --cleanup-tag || true
+          gh release create "$TAG" --prerelease --title "$TITLE" --notes "Emulator screenshots and logs for ${{ github.event.pull_request.head.sha || github.sha }}. Not for users." || true
+          for f in shots/*; do [ -s "$f" ] && { gh release upload "$TAG" "$f" --clobber || echo "upload failed: $f"; }; done
       - name: Fail on crash
         run: |
           if [ -s shots/crash.txt ]; then echo "App crashed on the emulator"; cat shots/crash.txt; exit 1; fi
@@ -104,6 +115,7 @@ jobs:
 
   publish:
     needs: smoke
+    if: github.event_name != 'pull_request'   # previews are never published to users
     runs-on: ubuntu-latest
     permissions:
       contents: read    # publishing uses the RELEASES_TOKEN secret, limited to the releases repository

@@ -26,7 +26,7 @@ object EgApps {
 
     private fun rx(s: String) = Regex(s, RegexOption.IGNORE_CASE)
 
-    val brands = listOf(
+    val builtin = listOf(
         Brand("InstaPay", "إنستاباي", setOf("com.egyptianbanks.instapay"), rx("instapay|insta.?pay|[اإ]نستا ?باي")),
         Brand("NBE Mobile", "البنك الأهلي المصري", setOf("com.ofss.obdx.and.nbe.com.eg"), rx("\\bnbe\\b|al.?ahly|ahly.?bank|national bank of egypt|البنك ال[اأ]هلي|ال[اأ]هلي المصري")),
         Brand("CIB", "البنك التجاري الدولي", setOf("com.cibeg.ddc1.digitalbanking.live", "com.CIB.Digital.MB", "com.cibeg.dxp.businessbanking.prod", "com.CIBEgyptSecureToken"), rx("\\bcib\\b|cibeg|التجاري الدولي")),
@@ -43,7 +43,9 @@ object EgApps {
         Brand("Telda", "تلدا", setOf("io.telda.app"), rx("telda|تلدا")),
     )
 
-    private val officialPkgs: Map<String, Brand> = buildMap { brands.forEach { b -> b.packages.forEach { put(it, b) } } }
+    /** Horus Studio can replace the list (assets/studio/egapps.json); otherwise the built-in one. */
+    val brands: List<Brand> get() = Studio.brands ?: builtin
+    private val officialPkgs: Map<String, Brand> get() = buildMap { brands.forEach { b -> b.packages.forEach { put(it, b) } } }
     fun brandOf(pkg: String): Brand? = officialPkgs[pkg]
 
     /** The brand an app's name or package imitates, if any (and it is not that brand's own package). */

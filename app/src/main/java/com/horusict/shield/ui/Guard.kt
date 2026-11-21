@@ -41,6 +41,7 @@ import com.horusict.shield.R
 import com.horusict.shield.ScamReports
 import com.horusict.shield.Screen
 import com.horusict.shield.Sev
+import com.horusict.shield.Studio
 import com.horusict.shield.Trackers
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -321,9 +322,14 @@ fun HelpScreen() {
             ActionText(L.t("ابدأ البحث", "ابدأ الدوّير", "Start searching")) { App.go(Screen.TRACKERS) }
         }
         Step(5, L.t("اطلب المساعدة", "اطلب مساعدة", "Get help"), L.t("هذه الجهات تتلقى البلاغات بسرية:", "الجهات دي بتستقبل البلاغات بسرية:", "These services take reports confidentially:")) {
-            ActionText(L.t("المجلس القومي للمرأة: 15115", "المجلس القومي للمرأة: 15115", "National Council for Women: 15115")) { dial(ctx, "15115") }
-            ActionText(L.t("الإبلاغ عن جرائم الإنترنت: 108", "الإبلاغ عن جرائم الإنترنت: 108", "Report internet crime: 108")) { dial(ctx, "108") }
-            ActionText(L.t("خط نجدة الطفل (لمن هم دون 18): 16000", "خط نجدة الطفل (لأقل من 18 سنة): 16000", "Child helpline (under 18): 16000")) { dial(ctx, "16000") }
+            val lines = Studio.helplines.ifEmpty {
+                listOf(
+                    Studio.Helpline("15115", "المجلس القومي للمرأة", "المجلس القومي للمرأة", "National Council for Women"),
+                    Studio.Helpline("108", "الإبلاغ عن جرائم الإنترنت", "الإبلاغ عن جرائم الإنترنت", "Report internet crime"),
+                    Studio.Helpline("16000", "خط نجدة الطفل (لمن هم دون 18)", "خط نجدة الطفل (لأقل من 18 سنة)", "Child helpline (under 18)"),
+                )
+            }
+            lines.forEach { h -> ActionText(L.t(h.msa, h.eg, h.en) + ": " + h.number) { dial(ctx, h.number) } }
         }
         Step(6, L.t("بعد أن تصبح في أمان", "بعد ما تبقى في أمان", "Once you are safe"),
             L.t("احذف البرنامج، أو أعد ضبط المصنع إن لم تستطع حذفه، ثم غيّر كلمات المرور مرة أخرى.", "امسح البرنامج، أو اعمل Factory reset لو مش عارف تمسحه، وبعدين غيّر الباسوردات تاني.", "Remove the program, or factory reset if you cannot, then change your passwords again."))
