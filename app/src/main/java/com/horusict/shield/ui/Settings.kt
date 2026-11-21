@@ -99,8 +99,12 @@ fun SettingsScreen() = TabScreen(Tab.SETTINGS) {
 
             HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)) {
                 ListRow(L.t("حول التطبيق والتحديثات", "حول التطبيق والتحديثات", "About and updates"), onClick = { App.screen = Screen.ABOUT })
-                ListRow(L.t("الدعم والتواصل", "الدعم والتواصل", "Support and contact"), "horusict.com", onClick = {
-                    try { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(Owner.website)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { }
+                ListRow(L.t("الدعم والتواصل", "الدعم والتواصل", "Support and contact"), Owner.contact, onClick = {
+                    val mail = android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:" + Owner.contact))
+                        .putExtra(android.content.Intent.EXTRA_SUBJECT, "Horus Shield " + com.horusict.shield.BuildConfig.VERSION_NAME).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    try { ctx.startActivity(mail) } catch (e: Exception) {
+                        try { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(Owner.website)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e2: Exception) { }
+                    }
                 }, last = true)
             }
 
