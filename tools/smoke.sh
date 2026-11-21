@@ -235,6 +235,8 @@ mkapk com.gbwhatsapp "GBWhatsApp"
 adb logcat -c
 adb shell am start -n $A --es horus_lang en --ez horus_dump true
 sleep 15
+adb shell am start -n $A --es horus_lang en --ez horus_studio true
+sleep 3
 adb logcat -d -s HorusTest > shots/features.txt || true
 cat shots/features.txt
 adb shell am start -n $A --es horus_lang eg --es horus_screen bankapps
@@ -264,6 +266,12 @@ shot 37b-result-fakes 2
 adb uninstall com.example.fakepay || true
 adb uninstall com.egyptianbanks.instapay || true
 adb uninstall com.gbwhatsapp || true
+ALERT='{"active":true,"id":"smoke","level":"danger","text":{"msa":"تنبيه: رسائل مزيفة باسم البنك الأهلي تطلب كود التفعيل. لا تشاركه مع أحد.","eg":"تنبيه: رسايل مزيفة باسم البنك الأهلي بتطلب كود التفعيل. متقولوش لحد.","en":"Alert: fake messages in the name of NBE ask for your activation code. Never share it."}}'
+adb shell am start -n $A --es horus_lang eg --es horus_screen home --es horus_alert "'$ALERT'"
+shot 38-alert-eg 4
+adb shell am start -n $A --es horus_lang eg --es horus_screen help
+adb shell input swipe 160 560 160 120 400
+shot 39-help-studio-eg 3
 # assertions: the build fails if a detection is missing
 FAIL=0
 need() { if grep -q "$1" shots/features.txt; then echo "PASS $1" >> shots/assert.txt; else echo "FAIL $1" >> shots/assert.txt; FAIL=1; fi; }
@@ -276,6 +284,9 @@ need "repair .* com.gbwhatsapp"
 need "phone=01012345678"
 need "bad=null"
 need "dump-done"
+need "studio override=Edited services keep=Reports"
+need "studio features=6 helplines=3 brands=14 bank=true"
+need "studio alert-parse=t1 inactive=null"
 cat shots/assert.txt
 adb shell am start -n $A --ez horus_selftest true
 sleep 6

@@ -83,6 +83,11 @@ object App {
         ctx = c.applicationContext
         Prefs.init(ctx)
         L.load()
+        Studio.load(ctx)
+        scope.launch {
+            val a = withContext(Dispatchers.IO) { Studio.fetchAlert() }
+            Studio.alert = a?.takeIf { !Studio.dismissed(it) }
+        }
         theme = Prefs.str("theme") ?: "dark"
         lastScore = Prefs.str("lastScore")?.toIntOrNull()
         lastScanAt = Prefs.long("lastScanAt")

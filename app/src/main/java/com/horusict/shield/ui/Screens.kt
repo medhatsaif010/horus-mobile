@@ -71,6 +71,7 @@ import com.horusict.shield.L
 import com.horusict.shield.R
 import com.horusict.shield.ScanResult
 import com.horusict.shield.Screen
+import com.horusict.shield.Studio
 import com.horusict.shield.Updater
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -269,24 +270,21 @@ fun HomeScreen() = TabScreen(Tab.SECURITY) {
             }
             if (last != null) Text(agoLabel(App.lastScanAt), color = C.Dim, fontSize = 12.sp)
             UpdateBanner()
+            AlertBanner()
             Primary(L.t("افحص موبايلي", "افحص موبايلي", "Scan my phone"), { App.startScan(deep = true) }, Modifier.width(260.dp))
             if (App.result != null) Text(L.t("اعرض آخر تقرير", "اعرض آخر تقرير", "View the last report"), color = C.GoldLight, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { App.screen = Screen.RESULT }.padding(horizontal = 16.dp, vertical = 8.dp))
             // what do you want to do? the services, by what the person is worried about
             Text(L.t("ماذا تريد أن تفعل؟", "عايز تعمل إيه؟", "What do you want to do?"), color = C.Gold, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
-            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                HomeTile(R.drawable.ic_link, L.t("افحص رابطًا", "افحص لينك", "Check a link"), L.t("قبل أن تفتحه", "قبل ما تفتحه", "Before you open it"), Modifier.weight(1f)) { App.linkResult = null; App.go(Screen.LINK) }
-                HomeTile(R.drawable.ic_bank, L.t("تطبيقات البنوك", "تطبيقات البنوك", "Bank apps"), L.t("رسمية أم مزيفة؟", "رسمية ولا مزيفة؟", "Official or fake?"), Modifier.weight(1f)) { App.bankApps = null; App.go(Screen.BANKAPPS) }
+            // the home tiles, in the order and selection set in Horus Studio
+            val tiles = Studio.homeOrder.filter { Studio.on(it) }.mapNotNull { homeTileSpec(it) }
+            tiles.chunked(2).forEach { pair ->
+                Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    pair.forEach { t -> HomeTile(t.icon, t.label, t.hint, Modifier.weight(1f), t.go) }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                }
             }
-            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                HomeTile(R.drawable.ic_phone, L.t("واتساب والمكالمات", "واتساب والمكالمات", "WhatsApp and calls"), L.t("امنع سرقة حسابك", "امنع سرقة حسابك", "Stop account theft"), Modifier.weight(1f)) { App.go(Screen.WHATSAPP) }
-                HomeTile(R.drawable.ic_flag, L.t("أبلغ عن احتيال", "بلّغ عن نصب", "Report a scam"), L.t("رابط أو رقم", "لينك أو رقم", "A link or number"), Modifier.weight(1f)) { App.reportMsg = ""; App.go(Screen.SCAMREPORT) }
-            }
-            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                HomeTile(R.drawable.ic_wrench, L.t("قبل الصيانة وبعدها", "قبل التصليح وبعده", "Repair check"), if (App.repairSavedAt > 0) L.t("قارن الآن", "قارن دلوقتي", "Compare now") else L.t("احفظ حالة الهاتف", "احفظ حالة الموبايل", "Save the phone's state"), Modifier.weight(1f)) { App.go(Screen.REPAIR) }
-                HomeTile(R.drawable.ic_radar, L.t("أجهزة التتبع", "أجهزة التتبع", "Trackers"), L.t("مثل AirTag", "زي AirTag", "AirTag and others"), Modifier.weight(1f)) { App.go(Screen.TRACKERS) }
-            }
-            HCard(Modifier.fillMaxWidth(), border = C.Danger.copy(alpha = 0.55f), onClick = { App.go(Screen.HELP) }) {
+            if (Studio.on("help")) HCard(Modifier.fillMaxWidth(), border = C.Danger.copy(alpha = 0.55f), onClick = { App.go(Screen.HELP) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Ico(R.drawable.ic_lifebuoy, C.Danger, 26.dp); Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
@@ -298,6 +296,34 @@ fun HomeScreen() = TabScreen(Tab.SECURITY) {
             }
             Spacer(Modifier.height(12.dp))
         }
+    }
+}
+
+private class TileSpec(val icon: Int, val label: String, val hint: String, val go: () -> Unit)
+
+private fun homeTileSpec(id: String): TileSpec? = when (id) {
+    "link" -> TileSpec(R.drawable.ic_link, L.t("افحص رابطًا", "افحص لينك", "Check a link"), L.t("قبل أن تفتحه", "قبل ما تفتحه", "Before you open it")) { App.linkResult = null; App.go(Screen.LINK) }
+    "bank" -> TileSpec(R.drawable.ic_bank, L.t("تطبيقات البنوك", "تطبيقات البنوك", "Bank apps"), L.t("رسمية أم مزيفة؟", "رسمية ولا مزيفة؟", "Official or fake?")) { App.bankApps = null; App.go(Screen.BANKAPPS) }
+    "whatsapp" -> TileSpec(R.drawable.ic_phone, L.t("واتساب والمكالمات", "واتساب والمكالمات", "WhatsApp and calls"), L.t("امنع سرقة حسابك", "امنع سرقة حسابك", "Stop account theft")) { App.go(Screen.WHATSAPP) }
+    "report" -> TileSpec(R.drawable.ic_flag, L.t("أبلغ عن احتيال", "بلّغ عن نصب", "Report a scam"), L.t("رابط أو رقم", "لينك أو رقم", "A link or number")) { App.reportMsg = ""; App.go(Screen.SCAMREPORT) }
+    "repair" -> TileSpec(R.drawable.ic_wrench, L.t("قبل الصيانة وبعدها", "قبل التصليح وبعده", "Repair check"), if (App.repairSavedAt > 0) L.t("قارن الآن", "قارن دلوقتي", "Compare now") else L.t("احفظ حالة الهاتف", "احفظ حالة الموبايل", "Save the phone's state")) { App.go(Screen.REPAIR) }
+    "trackers" -> TileSpec(R.drawable.ic_radar, L.t("أجهزة التتبع", "أجهزة التتبع", "Trackers"), L.t("مثل AirTag", "زي AirTag", "AirTag and others")) { App.go(Screen.TRACKERS) }
+    "help" -> TileSpec(R.drawable.ic_lifebuoy, L.t("أحدهم يراقبني", "حد بيراقبني", "Someone is watching me"), L.t("خطة آمنة", "خطة آمنة", "A safe plan")) { App.go(Screen.HELP) }
+    "ask" -> TileSpec(R.drawable.ic_chat, L.t("اسأل حورس", "اسأل حورس", "Ask Horus"), L.t("أسئلة ونصائح", "أسئلة ونصايح", "Questions and tips")) { Ask.open(Screen.HOME) }
+    else -> null
+}
+
+/** The urgent warning sent from Horus Studio: plain text, dismissible. */
+@Composable
+fun AlertBanner() {
+    val a = Studio.alert ?: return
+    val col = if (a.level == "danger") C.Danger else C.Warn
+    HCard(Modifier.fillMaxWidth(), border = col.copy(alpha = 0.8f)) {
+        Row(verticalAlignment = Alignment.Top) {
+            Ico(R.drawable.ic_warning, col, 24.dp); Spacer(Modifier.width(10.dp))
+            Text(Studio.text(a), color = C.Text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        }
+        ActionText(L.t("فهمت", "تمام، فهمت", "Got it"), col) { Studio.dismiss(a) }
     }
 }
 
@@ -651,17 +677,19 @@ fun ToolsScreen() = TabScreen(Tab.TOOLS) {
     Column(Modifier.fillMaxSize()) {
         TopBar(L.t("الخدمات", "الخدمات", "Services"), null)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (listOf("link", "bank", "whatsapp", "report").any { Studio.on(it) }) {
             SectionTitle(L.t("فلوسك وحساباتك", "فلوسك وحساباتك", "Your money and accounts"))
             HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)) {
-                ListRow(L.t("افحص رابطًا", "افحص لينك", "Check a link"), L.t("قبل أن تفتح أي رابط من واتساب أو رسالة", "قبل ما تفتح أي لينك من واتساب أو رسالة", "Before you open a link from WhatsApp or a message"), icon = R.drawable.ic_link, onClick = { App.linkResult = null; App.go(Screen.LINK) })
-                ListRow(L.t("تطبيقات البنوك والمحافظ", "تطبيقات البنوك والمحافظ", "Bank and wallet apps"), L.t("هل إنستاباي والبنك والمحفظة هي النسخ الرسمية؟", "إنستاباي والبنك والمحفظة رسميين ولا لأ؟", "Are InstaPay, your bank and wallet the official apps?"), icon = R.drawable.ic_bank, onClick = { App.bankApps = null; App.go(Screen.BANKAPPS) })
-                ListRow(L.t("واتساب والمكالمات", "واتساب والمكالمات", "WhatsApp and calls"), L.t("اكشف تحويل مكالماتك وأمّن حساب واتساب", "اكشف تحويل مكالماتك وأمّن حساب واتساب", "Find call forwarding and secure your WhatsApp"), icon = R.drawable.ic_phone, onClick = { App.go(Screen.WHATSAPP) })
-                ListRow(L.t("أبلغ عن احتيال", "بلّغ عن نصب", "Report a scam"), L.t("رابط أو رقم احتيال وصلك", "لينك أو رقم نصب جالك", "A scam link or number you received"), icon = R.drawable.ic_flag, onClick = { App.reportMsg = ""; App.go(Screen.SCAMREPORT) }, last = true)
+                if (Studio.on("link")) ListRow(L.t("افحص رابطًا", "افحص لينك", "Check a link"), L.t("قبل أن تفتح أي رابط من واتساب أو رسالة", "قبل ما تفتح أي لينك من واتساب أو رسالة", "Before you open a link from WhatsApp or a message"), icon = R.drawable.ic_link, onClick = { App.linkResult = null; App.go(Screen.LINK) }, last = !Studio.on("bank") && !Studio.on("whatsapp") && !Studio.on("report"))
+                if (Studio.on("bank")) ListRow(L.t("تطبيقات البنوك والمحافظ", "تطبيقات البنوك والمحافظ", "Bank and wallet apps"), L.t("هل إنستاباي والبنك والمحفظة هي النسخ الرسمية؟", "إنستاباي والبنك والمحفظة رسميين ولا لأ؟", "Are InstaPay, your bank and wallet the official apps?"), icon = R.drawable.ic_bank, onClick = { App.bankApps = null; App.go(Screen.BANKAPPS) }, last = !Studio.on("whatsapp") && !Studio.on("report"))
+                if (Studio.on("whatsapp")) ListRow(L.t("واتساب والمكالمات", "واتساب والمكالمات", "WhatsApp and calls"), L.t("اكشف تحويل مكالماتك وأمّن حساب واتساب", "اكشف تحويل مكالماتك وأمّن حساب واتساب", "Find call forwarding and secure your WhatsApp"), icon = R.drawable.ic_phone, onClick = { App.go(Screen.WHATSAPP) }, last = !Studio.on("report"))
+                if (Studio.on("report")) ListRow(L.t("أبلغ عن احتيال", "بلّغ عن نصب", "Report a scam"), L.t("رابط أو رقم احتيال وصلك", "لينك أو رقم نصب جالك", "A scam link or number you received"), icon = R.drawable.ic_flag, onClick = { App.reportMsg = ""; App.go(Screen.SCAMREPORT) }, last = true)
+            }
             }
             SectionTitle(L.t("خصوصيتك", "خصوصيتك", "Your privacy"))
             HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)) {
-                ListRow(L.t("أحدهم يراقبني", "حد بيراقبني", "Someone is watching me"), L.t("خطة آمنة خطوة بخطوة، وأرقام المساعدة في مصر", "خطة آمنة خطوة بخطوة، وأرقام المساعدة في مصر", "A safe plan step by step, and helplines in Egypt"), subColor = C.Danger, icon = R.drawable.ic_lifebuoy, onClick = { App.go(Screen.HELP) })
-                ListRow(L.t("أجهزة التتبع بالبلوتوث", "أجهزة التتبع بالبلوتوث", "Bluetooth trackers"), L.t("أجهزة مثل AirTag قد تكون قريبة منك", "أجهزة زي AirTag ممكن تكون جنبك", "AirTag, SmartTag and Tile near you"), icon = R.drawable.ic_radar, onClick = { App.go(Screen.TRACKERS) })
+                if (Studio.on("help")) ListRow(L.t("أحدهم يراقبني", "حد بيراقبني", "Someone is watching me"), L.t("خطة آمنة خطوة بخطوة، وأرقام المساعدة في مصر", "خطة آمنة خطوة بخطوة، وأرقام المساعدة في مصر", "A safe plan step by step, and helplines in Egypt"), subColor = C.Danger, icon = R.drawable.ic_lifebuoy, onClick = { App.go(Screen.HELP) })
+                if (Studio.on("trackers")) ListRow(L.t("أجهزة التتبع بالبلوتوث", "أجهزة التتبع بالبلوتوث", "Bluetooth trackers"), L.t("أجهزة مثل AirTag قد تكون قريبة منك", "أجهزة زي AirTag ممكن تكون جنبك", "AirTag, SmartTag and Tile near you"), icon = R.drawable.ic_radar, onClick = { App.go(Screen.TRACKERS) })
                 val exp = App.result?.exposure?.firstOrNull()
                 ListRow(L.t("من يستطيع سماعك ورؤيتك", "مين يقدر يسمعك ويشوفك", "Who can hear and see you"), exp?.let { L.t("${it.apps.size} تطبيقات لديها ${it.label}", "${it.apps.size} تطبيقات معاها ${it.label}", "${it.apps.size} apps with ${it.label}") } ?: L.t("الميكروفون والكاميرا والموقع", "المايك والكاميرا والموقع", "Microphone, camera and location"),
                     icon = R.drawable.ic_mic, onClick = { openPermissionManager(ctx) }, last = true)
@@ -669,9 +697,9 @@ fun ToolsScreen() = TabScreen(Tab.TOOLS) {
             SectionTitle(L.t("موبايلك", "موبايلك", "Your phone"))
             HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)) {
                 ListRow(L.t("افحص موبايلي", "افحص موبايلي", "Scan my phone"), L.t("برامج التجسس والتطبيقات المزيفة والإعدادات الخطرة", "برامج التجسس والتطبيقات المزيفة والإعدادات الخطر", "Spyware, fake apps and risky settings"), icon = R.drawable.ic_shield_pulse, onClick = { App.startScan(deep = true) })
-                ListRow(L.t("قبل الصيانة وبعدها", "قبل التصليح وبعده", "Before and after repair"), if (App.repairSavedAt > 0) L.t("الحالة محفوظة · قارن الآن", "الحالة متحفظة · قارن دلوقتي", "State saved · compare now") else L.t("احفظ حالة الهاتف قبل تسليمه لمحل صيانة", "احفظ حالة الموبايل قبل ما تسلّمه لمحل تصليح", "Save the phone's state before handing it in"),
-                    icon = R.drawable.ic_wrench, onClick = { App.go(Screen.REPAIR) })
-                ListRow(L.t("اسأل حورس", "اسأل حورس", "Ask Horus"), L.t("أسئلة ونصائح أمنية، دون إنترنت", "أسئلة ونصايح أمنية، من غير نت", "Questions and security tips, offline"), icon = R.drawable.ic_chat, onClick = { Ask.open(Screen.TOOLS) }, last = true)
+                if (Studio.on("repair")) ListRow(L.t("قبل الصيانة وبعدها", "قبل التصليح وبعده", "Before and after repair"), if (App.repairSavedAt > 0) L.t("الحالة محفوظة · قارن الآن", "الحالة متحفظة · قارن دلوقتي", "State saved · compare now") else L.t("احفظ حالة الهاتف قبل تسليمه لمحل صيانة", "احفظ حالة الموبايل قبل ما تسلّمه لمحل تصليح", "Save the phone's state before handing it in"),
+                    icon = R.drawable.ic_wrench, onClick = { App.go(Screen.REPAIR) }, last = !Studio.on("ask"))
+                if (Studio.on("ask")) ListRow(L.t("اسأل حورس", "اسأل حورس", "Ask Horus"), L.t("أسئلة ونصائح أمنية، دون إنترنت", "أسئلة ونصايح أمنية، من غير نت", "Questions and security tips, offline"), icon = R.drawable.ic_chat, onClick = { Ask.open(Screen.TOOLS) }, last = true)
             }
             Text(L.t("قاعدة التهديدات واستهلاك البيانات وأدوات الخبراء في الإعدادات.", "قاعدة التهديدات واستهلاك البيانات وأدوات الخبراء في الإعدادات.", "Threat intel, data usage and expert tools are in Settings."), color = C.Dim, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
             Spacer(Modifier.height(16.dp))

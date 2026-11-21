@@ -16,8 +16,13 @@ import androidx.compose.runtime.setValue
 object L {
     var lang by mutableStateOf("en")
     val ar: Boolean get() = lang != "en"
-    fun t(a: String, e: String): String = if (ar) a else e
-    fun t(msa: String, eg: String, en: String): String = when (lang) { "ar" -> msa; "eg" -> eg; else -> en }
+    /** Text edits made in Horus Studio, keyed by the original English text: en -> [msa, eg, en]. */
+    @Volatile var overrides: Map<String, Array<String?>> = emptyMap()
+    fun t(a: String, e: String): String = t(a, a, e)
+    fun t(msa: String, eg: String, en: String): String {
+        val o = overrides[en]
+        return when (lang) { "ar" -> o?.get(0) ?: msa; "eg" -> o?.get(1) ?: eg; else -> o?.get(2) ?: en }
+    }
     fun load() { lang = when (Prefs.str("lang")) { "ar" -> "ar"; "eg" -> "eg"; else -> "en" } }
 }
 

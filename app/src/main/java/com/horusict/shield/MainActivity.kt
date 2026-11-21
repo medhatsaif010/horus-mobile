@@ -124,6 +124,16 @@ class MainActivity : ComponentActivity() {
             // new features: write what they found to the log so the smoke test can assert on it
             if (i.getBooleanExtra("horus_repairsave", false)) Thread { RepairCheck.save(this, Collector.collect(this, false) { }); android.util.Log.i("HorusTest", "repair-saved") }.start()
             if (i.getBooleanExtra("horus_repaircompare", false)) { App.repairSavedAt = RepairCheck.savedAt(this); App.screen = Screen.REPAIR; App.repairCompare() }
+            i.getStringExtra("horus_alert")?.let { Studio.alert = Studio.parseAlert(it) }
+            if (i.getBooleanExtra("horus_studio", false)) {
+                val saved = L.overrides
+                L.overrides = mapOf("Services" to arrayOf("خدمات مُعدّلة", null, "Edited services"))
+                val lang = L.lang
+                android.util.Log.i("HorusTest", "studio override=" + L.t("الخدمات", "الخدمات", "Services") + " keep=" + L.t("التقارير", "التقارير", "Reports") + " lang=" + lang)
+                L.overrides = saved
+                android.util.Log.i("HorusTest", "studio features=" + Studio.homeOrder.size + " helplines=" + Studio.helplines.size + " brands=" + EgApps.brands.size + " bank=" + Studio.on("bank"))
+                android.util.Log.i("HorusTest", "studio alert-parse=" + (Studio.parseAlert("{\"active\":true,\"id\":\"t1\",\"text\":{\"en\":\"Test\"}}")?.id) + " inactive=" + Studio.parseAlert("{\"active\":false,\"id\":\"t2\",\"text\":{\"en\":\"x\"}}"))
+            }
             if (i.getBooleanExtra("horus_dump", false)) Thread {
                 val d = Collector.collect(this, false) { }
                 val r = Analyzer.analyze(d, Intel.get(this))

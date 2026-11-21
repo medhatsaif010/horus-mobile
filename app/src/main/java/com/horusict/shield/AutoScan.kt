@@ -100,6 +100,7 @@ class ScanWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
         val c = applicationContext
         Prefs.init(c)
         L.load()
+        Studio.load(c)
         try {
             val age = Intel.ageDays(Intel.get(c)) ?: 99
             if (age >= 2) Intel.update(c)

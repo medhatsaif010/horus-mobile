@@ -1,0 +1,4 @@
+{
+  "features": {"link": true, "bank": true, "whatsapp": true, "report": true, "repair": true, "trackers": true, "help": true, "ask": true, "root": true},
+  "homeOrder": ["link", "bank", "whatsapp", "report", "repair", "trackers"]
+}
