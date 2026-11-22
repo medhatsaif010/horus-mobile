@@ -31,6 +31,9 @@ class IntelData(
     val kev: List<Kev>,
     val malwareUrls: Set<String>,
     val malwareHashes: Set<String> = emptySet(),
+    /** Scam sites and numbers reported by Horus Shield users and confirmed by the Horus team. */
+    val communityDomains: Set<String> = emptySet(),
+    val communityPhones: Set<String> = emptySet(),
 ) {
     val byPackage: Map<String, Stalker> = buildMap { stalkerware.forEach { s -> s.packages.forEach { put(it, s) } } }
     val byCert: Map<String, Stalker> = buildMap { stalkerware.forEach { s -> s.certs.forEach { put(it.uppercase(), s) } } }
@@ -113,7 +116,12 @@ object Intel {
         o.optJSONArray("malware_urls")?.let { a -> for (i in 0 until a.length()) urls.add(a.optString(i).lowercase()) }
         val hashes = HashSet<String>()
         o.optJSONArray("malware_sha256")?.let { a -> for (i in 0 until a.length()) hashes.add(a.optString(i).lowercase()) }
-        return IntelData(o.optString("generatedAt", ""), source, st, doms, ips, fin, kev, urls, hashes)
+        val cd = HashSet<String>(); val cp = HashSet<String>()
+        o.optJSONObject("community")?.let { c ->
+            c.optJSONArray("domains")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.optString("d")?.lowercase()?.takeIf { it.contains('.') }?.let { cd.add(it) } }
+            c.optJSONArray("phones")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.optString("p")?.takeIf { it.length >= 7 }?.let { cp.add(it) } }
+        }
+        return IntelData(o.optString("generatedAt", ""), source, st, doms, ips, fin, kev, urls, hashes, cd, cp)
     }
 
     /** Full signed pack -> the small subset the phone needs. */
@@ -134,6 +142,7 @@ object Intel {
         o.put("android_kev", full.optJSONObject("kev")?.optJSONArray("android") ?: JSONArray())
         o.put("malware_urls", full.optJSONObject("malware")?.optJSONArray("urls") ?: JSONArray())
         o.put("malware_sha256", full.optJSONObject("malware")?.optJSONArray("sha256") ?: JSONArray())
+        o.put("community", full.optJSONObject("community") ?: JSONObject())
         return o
     }
 

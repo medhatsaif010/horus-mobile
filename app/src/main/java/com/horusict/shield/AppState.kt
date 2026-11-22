@@ -172,6 +172,9 @@ object App {
         }
     }
 
+    /** Loads the threat intel in the background if no screen has needed it yet. */
+    fun ensureIntel() { if (intel == null) scope.launch { intel = withContext(Dispatchers.IO) { Intel.get(ctx) } } }
+
     /** Reads the phone (quick, no deep scan) and fills the bank apps screen. */
     fun loadBankApps() {
         scope.launch {

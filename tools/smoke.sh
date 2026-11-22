@@ -302,6 +302,7 @@ PY
 echo "expect: $STUDIO_EXPECT"
 need "$STUDIO_EXPECT"
 need "studio alert-parse=t1 inactive=null"
+need "community link=true clean=false phone=true"
 cat shots/assert.txt
 adb shell am start -n $A --ez horus_selftest true
 sleep 6

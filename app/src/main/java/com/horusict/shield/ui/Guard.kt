@@ -348,6 +348,7 @@ fun ScamReportScreen() {
     var channel by rememberSaveable { mutableStateOf("whatsapp") }
     var err by remember { mutableStateOf("") }
     val mine = remember(App.reportsVersion) { ScamReports.list().reversed() }
+    LaunchedEffect(Unit) { App.ensureIntel() }
     Page(L.t("أبلغ عن احتيال", "بلّغ عن نصب", "Report a scam")) {
         Intro(L.t("وصلك رابط أو رقم احتيال؟ أبلغ عنه. تراجع Horus ICT البلاغات، وتضيف المؤكد منها إلى قاعدة التهديدات فيُحمى بها كل المستخدمين.", "جالك لينك أو رقم نصب؟ بلّغ عنه. Horus ICT بتراجع البلاغات، واللي يتأكد بيتضاف لقاعدة التهديدات فيحمي كل المستخدمين.",
             "Got a scam link or number? Report it. Horus ICT reviews reports and adds confirmed ones to the threat intel, so everyone is protected."))
@@ -361,6 +362,8 @@ fun ScamReportScreen() {
             keyboardOptions = KeyboardOptions(keyboardType = if (kind == "link") KeyboardType.Uri else KeyboardType.Phone),
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = C.Gold, unfocusedBorderColor = C.Line, cursorColor = C.Gold, focusedContainerColor = C.Surface, unfocusedContainerColor = C.Surface),
         )
+        val known = kind == "phone" && ScamReports.normalize("phone", value)?.let { ScamReports.canonPhone(it) in (App.intel?.communityPhones ?: emptySet()) } == true
+        if (known) Text(L.t("هذا الرقم أبلغ عنه مستخدمون آخرون، وتحقق منه فريق Horus: إنه احتيال. لا ترد ولا ترسل له أي أكواد.", "الرقم ده ناس تانية بلّغت عنه، وفريق Horus اتأكد إنه نصب. متردش عليه ومتبعتلوش أي أكواد.", "Other users reported this number and the Horus team confirmed it is a scam. Do not answer it or send it any codes."), color = C.Danger, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         Text(L.t("أين وصلك؟", "جالك منين؟", "Where did it reach you?"), color = C.Muted, fontSize = 13.sp)
         val channels = listOf("whatsapp" to "WhatsApp", "sms" to L.t("رسالة SMS", "رسالة SMS", "SMS"), "call" to L.t("مكالمة", "مكالمة", "Call"), "facebook" to "Facebook", "telegram" to "Telegram", "other" to L.t("أخرى", "حاجة تانية", "Other"))
         channels.chunked(3).forEach { row -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { row.forEach { (k, t) -> Choice(t, channel == k) { channel = k } } } }

@@ -132,6 +132,12 @@ class MainActivity : ComponentActivity() {
                 android.util.Log.i("HorusTest", "studio override=" + L.t("الخدمات", "الخدمات", "Services") + " keep=" + L.t("التقارير", "التقارير", "Reports") + " lang=" + lang)
                 L.overrides = saved
                 android.util.Log.i("HorusTest", "studio features=" + Studio.homeOrder.size + " helplines=" + Studio.helplines.size + " brands=" + EgApps.brands.size + " bank=" + Studio.on("bank"))
+                val ti = IntelData("", "test", emptyList(), emptyMap(), emptyMap(), emptyList(), emptyList(), emptySet(), emptySet(), setOf("scam-test.example"), setOf("01012345678"))
+                Thread {
+                    val hit = UrlCheck.check("https://pay.scam-test.example/x", ti, online = false).signals.any { it.level == "bad" }
+                    val miss = UrlCheck.check("https://example.org/", ti, online = false).signals.any { it.level == "bad" }
+                    android.util.Log.i("HorusTest", "community link=$hit clean=$miss phone=" + (ScamReports.canonPhone("+20 101 234 5678") in ti.communityPhones))
+                }.start()
                 android.util.Log.i("HorusTest", "studio alert-parse=" + (Studio.parseAlert("{\"active\":true,\"id\":\"t1\",\"text\":{\"en\":\"Test\"}}")?.id) + " inactive=" + Studio.parseAlert("{\"active\":false,\"id\":\"t2\",\"text\":{\"en\":\"x\"}}"))
             }
             if (i.getBooleanExtra("horus_dump", false)) Thread {

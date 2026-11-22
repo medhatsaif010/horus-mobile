@@ -35,6 +35,14 @@ object ScamReports {
     }
 
     /** Cleans what the user typed. null = not a link or phone number we can use. */
+    /** One form for Egyptian numbers, so +20 10..., 0020 10... and 010... match. Same rule as Horus Studio. */
+    fun canonPhone(p: String): String {
+        var d = p.filter { it.isDigit() }
+        if (d.startsWith("00")) d = d.drop(2)
+        if (d.startsWith("20") && d.length == 12) d = "0" + d.drop(2)
+        return d
+    }
+
     fun normalize(kind: String, raw: String): String? {
         val t = raw.trim()
         return when (kind) {

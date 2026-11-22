@@ -169,6 +169,8 @@ object UrlCheck {
             val reg = if (isIp) h else registrable(h)
             val tld = h.substringAfterLast('.')
 
+            if (!isIp && intel.communityDomains.any { h == it || h.endsWith(".$it") })
+                sig("bad", "أبلغ مستخدمو Horus Shield عن هذا الموقع كاحتيال، وتحقق منه فريق Horus.", "ناس من مستخدمي Horus Shield بلّغوا إن الموقع ده نصب، وفريق Horus اتأكد منه.", "Horus Shield users reported this site as a scam, and the Horus team confirmed it.")
             intel.c2Domains.entries.firstOrNull { h == it.key || h.endsWith("." + it.key) }?.let {
                 sig("bad", "النطاق $h مسجّل كخادم تحكم لبرمجية خبيثة (${it.value}).", "الدومين $h متسجل كسيرفر تحكم لبرمجية خبيثة (${it.value}).", "The domain $h is listed as a malware command server (${it.value}).")
             }
