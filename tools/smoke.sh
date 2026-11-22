@@ -285,7 +285,22 @@ need "phone=01012345678"
 need "bad=null"
 need "dump-done"
 need "studio override=Edited services keep=Reports"
-need "studio features=6 helplines=3 brands=14 bank=true"
+# what the app loaded must match the Studio files, whatever the owner set in them
+STUDIO_EXPECT=$(python3 - <<'PY'
+import json, os, re
+d = "app/src/main/assets/studio/"
+f = json.load(open(d + "features.json"))
+order = [x for x in f.get("homeOrder", []) if x]
+h = [x for x in json.load(open(d + "helplines.json")) if re.fullmatch(r"[0-9+]{3,15}", str(x.get("number", "")))]
+b = 14
+if os.path.exists(d + "egapps.json"):
+    b = len([x for x in json.load(open(d + "egapps.json")) if x.get("name", "").strip() and x.get("packages")]) or 14
+bank = "true" if f.get("features", {}).get("bank", True) is not False else "false"
+print(f"studio features={len(order)} helplines={len(h)} brands={b} bank={bank}")
+PY
+)
+echo "expect: $STUDIO_EXPECT"
+need "$STUDIO_EXPECT"
 need "studio alert-parse=t1 inactive=null"
 cat shots/assert.txt
 adb shell am start -n $A --ez horus_selftest true
