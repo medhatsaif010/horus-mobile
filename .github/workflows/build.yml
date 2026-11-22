@@ -153,7 +153,9 @@ jobs:
 
   publish:
     needs: smoke
-    if: github.event_name != 'pull_request'   # previews are never published to users
+    # previews are never published to users. !cancelled() is needed because one of the two build jobs
+    # is always skipped, and a skipped job up the chain would otherwise skip publishing too.
+    if: ${{ !cancelled() && needs.smoke.result == 'success' && github.event_name != 'pull_request' }}
     environment: release
     runs-on: ubuntu-latest
     permissions:
