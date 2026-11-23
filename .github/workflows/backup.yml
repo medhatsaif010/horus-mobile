@@ -11,12 +11,12 @@ name: Backup to OneDrive
 # Not backed up here on purpose: the signing keystore and its passwords. Keep those offline yourself.
 #
 # Secrets (Settings > Secrets and variables > Actions):
-#   RCLONE_ONEDRIVE_TOKEN  output of `rclone authorize "onedrive"` on your PC (the JSON in {...})
-#   ONEDRIVE_DRIVE_ID      your OneDrive for Business drive id
+#   RCLONE_CONF            the whole rclone.conf from your PC after `rclone config create od onedrive`
+#                          (%APPDATA%\rclone\rclone.conf); it holds the OneDrive sign-in and drive id
 #   BACKUP_PASSPHRASE      long random passphrase; also store it offline, without it nothing can be restored
 #   BACKUP_GH_TOKEN        fine-grained token, read-only Contents on the 3 repos (horusict-site is private)
 # Variable (same page, Variables tab):
-#   ONEDRIVE_TOKEN_DATE    the day RCLONE_ONEDRIVE_TOKEN was set (yyyy-mm-dd); a reminder issue opens at 75 days
+#   ONEDRIVE_TOKEN_DATE    the day RCLONE_CONF was set (yyyy-mm-dd); a reminder issue opens at 75 days
 on:
   schedule:
     - cron: "41 1 * * *"     # 01:41 UTC = 03:41 Cairo
@@ -48,13 +48,13 @@ jobs:
           rclone version | head -1
       - name: OneDrive access
         env:
-          TOKEN: ${{ secrets.RCLONE_ONEDRIVE_TOKEN }}
-          DRIVE: ${{ secrets.ONEDRIVE_DRIVE_ID }}
+          CONF: ${{ secrets.RCLONE_CONF }}
         run: |
-          if [ -z "$TOKEN" ] || [ -z "$DRIVE" ] || [ -z "$BACKUP_PASSPHRASE" ]; then echo "::error::Backup secrets are not set"; exit 1; fi
+          if [ -z "$CONF" ] || [ -z "$BACKUP_PASSPHRASE" ]; then echo "::error::Backup secrets are not set"; exit 1; fi
           mkdir -p ~/.config/rclone
           umask 077
-          printf '[od]\ntype = onedrive\ndrive_type = business\ndrive_id = %s\ntoken = %s\n' "$DRIVE" "$TOKEN" > ~/.config/rclone/rclone.conf
+          printf '%s\n' "$CONF" > ~/.config/rclone/rclone.conf
+          grep -q '^\[od\]' ~/.config/rclone/rclone.conf || { echo "::error::RCLONE_CONF has no [od] remote"; exit 1; }
           rclone mkdir "$REMOTE"
       - name: Which tiers today
         id: tier
@@ -80,7 +80,7 @@ jobs:
           echo "OneDrive sign-in is $days days old"
           if [ "$days" -ge 75 ] && [ -z "$(gh issue list -R "$GITHUB_REPOSITORY" --search "جدد تصريح OneDrive in:title" --state open --json number --jq '.[0].number')" ]; then
             gh issue create -R "$GITHUB_REPOSITORY" --assignee medhatsaif010 --title "جدد تصريح OneDrive للباك أب" \
-              --body "تصريح OneDrive بقاله $days يوم، وممكن يقف قريب. شغّل على جهازك: rclone authorize \"onedrive\"، وحط الناتج مكان RCLONE_ONEDRIVE_TOKEN، وغيّر المتغير ONEDRIVE_TOKEN_DATE لتاريخ النهارده." || true
+              --body "تصريح OneDrive بقاله $days يوم، وممكن يقف قريب. شغّل على جهازك: rclone config reconnect od:، وحط محتوى ملف rclone.conf الناتج مكان RCLONE_CONF، وغيّر المتغير ONEDRIVE_TOKEN_DATE لتاريخ النهارده." || true
           fi
       - name: Collect
         env:
