@@ -157,6 +157,46 @@ fun answerOf(v: String): String = when (v) {
 
 fun verdictColor(v: String): Color = when (v) { "compromised" -> C.Danger; "suspicious" -> C.Warn; else -> C.Safe }
 
+// ------------------------------------------------------------------ links tapped in other apps
+/** True when the user chose Horus Shield as the browser, so tapped links are checked first. */
+internal fun isLinkGuard(ctx: android.content.Context): Boolean = try {
+    if (android.os.Build.VERSION.SDK_INT >= 29) {
+        val rm = ctx.getSystemService(android.app.role.RoleManager::class.java)
+        rm != null && rm.isRoleAvailable(android.app.role.RoleManager.ROLE_BROWSER) && rm.isRoleHeld(android.app.role.RoleManager.ROLE_BROWSER)
+    } else {
+        ctx.packageManager.resolveActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://example.com")), android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName == ctx.packageName
+    }
+} catch (e: Exception) { false }
+
+/** Asks Android to make Horus Shield the app that opens links, or opens the default apps settings. */
+internal fun askLinkGuard(ctx: android.content.Context) {
+    if (android.os.Build.VERSION.SDK_INT >= 29) try {
+        val rm = ctx.getSystemService(android.app.role.RoleManager::class.java)
+        if (rm != null && rm.isRoleAvailable(android.app.role.RoleManager.ROLE_BROWSER)) {
+            ctx.startActivity(rm.createRequestRoleIntent(android.app.role.RoleManager.ROLE_BROWSER).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)); return
+        }
+    } catch (e: Exception) { }
+    for (i in listOf(android.content.Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS), android.content.Intent(android.provider.Settings.ACTION_SETTINGS))) {
+        try { ctx.startActivity(i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)); return } catch (e: Exception) { }
+    }
+}
+
+/** Hands the link to a real browser (never back to Horus Shield). False when there is no other browser. */
+internal fun openInBrowser(ctx: android.content.Context, link: String): Boolean {
+    val u = (com.horusict.shield.UrlCheck.extract(link) ?: link).trim().let { if (Regex("^https?://", RegexOption.IGNORE_CASE).containsMatchIn(it)) it else "https://$it" }
+    val view = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u)).addCategory(android.content.Intent.CATEGORY_BROWSABLE)
+    val others = try { ctx.packageManager.queryIntentActivities(view, android.content.pm.PackageManager.MATCH_ALL).filter { it.activityInfo.packageName != ctx.packageName } } catch (e: Exception) { emptyList() }
+    if (others.isEmpty()) return false
+    val pick = others.firstOrNull { it.activityInfo.packageName == "com.android.chrome" } ?: others.singleOrNull()
+    return try {
+        if (pick != null) ctx.startActivity(view.setClassName(pick.activityInfo.packageName, pick.activityInfo.name).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        else ctx.startActivity(android.content.Intent.createChooser(view, L.t("افتح الرابط في", "افتح اللينك في", "Open the link in"))
+            .putExtra(android.content.Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(android.content.ComponentName(ctx, com.horusict.shield.MainActivity::class.java)))
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        true
+    } catch (e: Exception) { false }
+}
+
 internal fun openPermissionManager(ctx: android.content.Context) {
     val tries = listOf(
         android.content.Intent("android.intent.action.MANAGE_PERMISSIONS"),
@@ -613,11 +653,38 @@ fun CheckRow(c: Check) {
 fun LinkScreen() {
     var text by remember(App.linkText) { mutableStateOf(App.linkText) }
     val r = App.linkResult
+    val ctx = LocalContext.current
+    var noBrowser by remember(App.linkText) { mutableStateOf(false) }
     Backdrop {
         TopBar(L.t("فحص الروابط", "فحص اللينكات", "Link check"), { App.screen = App.back })
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(L.t("الصق الرابط الذي وصلك. لا يفتح Horus Shield الصفحة، بل يتحقق من وجهتها ومالكها وعمرها.", "الزق اللينك اللي جالك. Horus Shield مش بيفتح الصفحة: بيشوف رايحة فين، ومين صاحبها، وعمرها قد إيه.",
                 "Paste the link you received. Horus Shield does not open the page: it checks where it leads, who it pretends to be, and how old it is."), color = C.Text2, fontSize = 14.sp)
+            if (App.linkTapped) {
+                val la = App.linkLookAlike
+                if (la != null) HCard(Modifier.fillMaxWidth(), border = C.Danger.copy(alpha = 0.7f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Ico(R.drawable.ic_warning, C.Danger, 40.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Text(L.t("تحذير: موقع يشبه «${la.brand}»", "تحذير: موقع شبه «${la.brand}»", "Warning: a site posing as «${la.brand}»"), color = C.Danger, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                    }
+                    Text(la.host, color = C.Text, fontSize = 13.sp, style = Ltr)
+                    Text(L.t("هذا الرابط الذي ضغطت عليه ليس موقع «${la.brand}» الرسمي (${la.official}) بل مكتوب ليشبهه. لا تكتب فيه كلمة مرور ولا رمز تحقق ولا بيانات بطاقة. إن احتجت إلى البنك أو المحفظة فافتح التطبيق الرسمي أو اكتب ${la.official} بنفسك.",
+                        "اللينك اللي دوست عليه مش موقع «${la.brand}» الرسمي (${la.official})، ده متكتب علشان يتشبّه بيه. متكتبش فيه باسورد ولا كود ولا بيانات كارت. لو محتاج البنك أو المحفظة افتح التطبيق الرسمي أو اكتب ${la.official} بإيدك.",
+                        "The link you tapped is not the official «${la.brand}» site (${la.official}); it is spelled to look like it. Do not type a password, a code or card details into it. If you need your bank or wallet, open the official app or type ${la.official} yourself."), color = C.Text2, fontSize = 13.sp)
+                    ActionText(L.t("افتحه في المتصفح على أي حال", "افتحه في المتصفح برضه", "Open it in the browser anyway"), color = C.Muted) { noBrowser = !openInBrowser(ctx, App.linkText) }
+                } else HCard(Modifier.fillMaxWidth(), border = C.Safe.copy(alpha = 0.6f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Ico(R.drawable.ic_shield_check, C.Safe, 32.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Text(L.t("لا يشبه موقع بنك أو محفظة", "مش شبه موقع بنك أو محفظة", "Not posing as a bank or wallet"), color = C.Safe, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                    }
+                    Text(L.t("فحص Horus Shield الرابط الذي ضغطت عليه على هاتفك دون إرسال شيء. للفحص الأعمق (التحويلات وعمر النطاق) اضغط «افحص الرابط».", "Horus Shield شيّك على اللينك اللي دوست عليه على موبايلك من غير ما يبعت حاجة. للفحص الأعمق (التحويلات وعمر الدومين) دوس «افحص اللينك».",
+                        "Horus Shield checked the link you tapped on your phone, sending nothing. For a deeper check (redirects and domain age) tap Check link."), color = C.Text2, fontSize = 13.sp)
+                    Secondary(L.t("افتحه في المتصفح", "افتحه في المتصفح", "Open in the browser"), { noBrowser = !openInBrowser(ctx, App.linkText) })
+                }
+                if (noBrowser) Text(L.t("لا يوجد متصفح آخر على الهاتف لفتح الرابط.", "مفيش متصفح تاني على الموبايل يفتح اللينك.", "There is no other browser on the phone to open the link."), color = C.Warn, fontSize = 13.sp)
+            }
             OutlinedTextField(
                 value = text, onValueChange = { text = it }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
                 placeholder = { Text("https://…", color = C.Dim, style = Ltr) }, textStyle = Ltr.copy(color = C.Text, fontSize = 15.sp),
@@ -664,6 +731,15 @@ fun LinkScreen() {
                         }
                     }
                 }
+            }
+            SectionTitle(L.t("مراقبة الروابط التي تضغطها", "مراقبة اللينكات اللي بتدوس عليها", "Watch the links you tap"))
+            HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)) {
+                ListRow(
+                    if (App.linkGuard) L.t("المراقبة تعمل", "المراقبة شغّالة", "Watching is on") else L.t("افحص كل رابط قبل فتحه", "افحص كل لينك قبل ما يفتح", "Check every link before it opens"),
+                    if (App.linkGuard) L.t("كل رابط تضغطه في واتساب أو رسالة يُفحص أولًا على هاتفك بحثًا عن مواقع مزيفة تشبه البنوك والمحافظ.", "أي لينك تدوس عليه في واتساب أو رسالة بيتفحص الأول على موبايلك علشان المواقع المزيفة اللي شبه البنوك والمحافظ.", "Every link you tap in WhatsApp or a message is checked on your phone first for fake bank and wallet sites.")
+                    else L.t("اختر Horus Shield متصفحًا: يفحص الرابط على هاتفك بحثًا عن مواقع تشبه البنوك والمحافظ، ثم يفتحه في متصفحك.", "اختار Horus Shield كمتصفح: بيفحص اللينك على موبايلك لو شبه موقع بنك أو محفظة، وبعدين يفتحه في متصفحك.", "Choose Horus Shield as the browser: it checks the link on your phone for fake bank and wallet sites, then opens it in your browser."),
+                    subColor = if (App.linkGuard) C.Safe else C.Muted, icon = R.drawable.ic_link, onClick = { askLinkGuard(ctx) }, last = true,
+                )
             }
             Spacer(Modifier.height(16.dp))
         }
