@@ -1,0 +1,47 @@
+name: Export signing key (one time)
+
+# Run by hand, once, to get an offline copy of the official signing key. Delete this file afterwards.
+# The key is checked against the official fingerprint, then put in one file encrypted with AES-256
+# using the BACKUP_PASSPHRASE secret, and kept as a run artifact for 1 day only.
+# This repository is public: the artifact is encrypted, so only someone with the passphrase can open it.
+# Nothing secret is printed in the log.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: github.actor == 'medhatsaif010' && github.ref == 'refs/heads/main'
+    environment: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check and encrypt
+        env:
+          KS_B64: ${{ secrets.HORUS_RELEASE_KEYSTORE }}
+          KS_PASS: ${{ secrets.HORUS_RELEASE_STORE_PASSWORD }}
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          umask 077
+          [ -n "$KS_B64" ] && [ -n "$KS_PASS" ] || { echo "::error::The signing key secrets are missing"; exit 1; }
+          [ "${#PASSPHRASE}" -ge 20 ] || { echo "::error::Set BACKUP_PASSPHRASE (at least 20 characters) first"; exit 1; }
+          d="$RUNNER_TEMP/horus-signing-key"; mkdir -p "$d"
+          echo "$KS_B64" | base64 -d > "$d/horus-release.keystore"
+          FP=$(keytool -list -v -keystore "$d/horus-release.keystore" -storepass:env KS_PASS -alias horussec | grep -m1 "SHA256:" | awk '{print $2}' | tr -d ':' | tr 'A-F' 'a-f')
+          echo "Keystore certificate SHA-256: $FP"
+          [ "$FP" = "bd3bd3050eed7972efa58454c8c3132ca5a73da9926f6d7ada4f5e51428c5167" ] || { echo "::error::The keystore is NOT the official key"; exit 1; }
+          printf '%s\n' "$KS_PASS" > "$d/store-and-key-password.txt"
+          printf 'alias: horussec\ncertificate SHA-256: %s\nexported: %s\n' "$FP" "$(date -u +%F)" > "$d/README.txt"
+          (cd "$d" && sha256sum horus-release.keystore > SHA256SUMS)
+          tar -C "$RUNNER_TEMP" -cz horus-signing-key | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 \
+            --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512 --s2k-count 65011712 -o horus-signing-key.tar.gz.gpg 3<<<"$PASSPHRASE"
+          rm -rf "$d"
+          sha256sum horus-signing-key.tar.gz.gpg
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: horus-signing-key-encrypted
+          path: horus-signing-key.tar.gz.gpg
+          retention-days: 1
