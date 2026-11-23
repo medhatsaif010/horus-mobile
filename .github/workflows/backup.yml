@@ -15,6 +15,8 @@ name: Backup to OneDrive
 #   ONEDRIVE_DRIVE_ID      your OneDrive for Business drive id
 #   BACKUP_PASSPHRASE      long random passphrase; also store it offline, without it nothing can be restored
 #   BACKUP_GH_TOKEN        fine-grained token, read-only Contents on the 3 repos (horusict-site is private)
+# Variable (same page, Variables tab):
+#   ONEDRIVE_TOKEN_DATE    the day RCLONE_ONEDRIVE_TOKEN was set (yyyy-mm-dd); a reminder issue opens at 75 days
 on:
   schedule:
     - cron: "41 1 * * *"     # 01:41 UTC = 03:41 Cairo
@@ -56,12 +58,30 @@ jobs:
           rclone mkdir "$REMOTE"
       - name: Which tiers today
         id: tier
+        env:
+          ASKED: ${{ github.event.inputs.tier }}   # passed as data, never pasted into the script
         run: |
           t="daily"
           [ "$(date -u +%u)" = 7 ] && t="$t weekly"
           [ "$(date -u +%d)" = 01 ] && t="$t monthly"
-          [ -n "${{ github.event.inputs.tier }}" ] && t="${{ github.event.inputs.tier }}"
+          case "$ASKED" in
+            "") ;;
+            daily|weekly|monthly) t="$ASKED" ;;
+            *) echo "::error::tier must be daily, weekly or monthly"; exit 1 ;;
+          esac
           echo "tiers=$t" >> "$GITHUB_OUTPUT"; echo "tiers: $t"
+      - name: Remind the owner to renew the OneDrive sign-in
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SET_ON: ${{ vars.ONEDRIVE_TOKEN_DATE }}   # yyyy-mm-dd, the day RCLONE_ONEDRIVE_TOKEN was set
+        run: |
+          [ -n "$SET_ON" ] || { echo "ONEDRIVE_TOKEN_DATE not set; no reminder"; exit 0; }
+          days=$(( ( $(date -u +%s) - $(date -u -d "$SET_ON" +%s) ) / 86400 ))
+          echo "OneDrive sign-in is $days days old"
+          if [ "$days" -ge 75 ] && [ -z "$(gh issue list -R "$GITHUB_REPOSITORY" --search "جدد تصريح OneDrive in:title" --state open --json number --jq '.[0].number')" ]; then
+            gh issue create -R "$GITHUB_REPOSITORY" --assignee medhatsaif010 --title "جدد تصريح OneDrive للباك أب" \
+              --body "تصريح OneDrive بقاله $days يوم، وممكن يقف قريب. شغّل على جهازك: rclone authorize \"onedrive\"، وحط الناتج مكان RCLONE_ONEDRIVE_TOKEN، وغيّر المتغير ONEDRIVE_TOKEN_DATE لتاريخ النهارده." || true
+          fi
       - name: Collect
         env:
           GH_TOKEN: ${{ secrets.BACKUP_GH_TOKEN }}
