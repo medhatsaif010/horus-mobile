@@ -1,0 +1,140 @@
+name: Backup to OneDrive
+
+# Encrypted off-site backup of everything Horus Shield needs to be rebuilt, to the owner's OneDrive.
+#   daily   every day       kept 7 days
+#   weekly  every Sunday    kept 4 weeks
+#   monthly the 1st         kept 12 months
+# What: full git history of horus-mobile, horus-intel and horusict-site (git bundles), the published APK,
+# the Studio files and the threat-intel snapshot. Each set is one archive encrypted with AES-256 (gpg)
+# plus a SHA256SUMS file. Every Sunday the newest backup is downloaded back, decrypted and checked
+# (restore test). Any failure opens an issue assigned to the owner, so GitHub emails him.
+# Not backed up here on purpose: the signing keystore and its passwords. Keep those offline yourself.
+#
+# Secrets (Settings > Secrets and variables > Actions):
+#   RCLONE_CONF            the whole rclone.conf from your PC after `rclone config create od onedrive`
+#                          (%APPDATA%\rclone\rclone.conf); it holds the OneDrive sign-in and drive id
+#   BACKUP_PASSPHRASE      long random passphrase; also store it offline, without it nothing can be restored
+#   BACKUP_GH_TOKEN        fine-grained token, read-only Contents on the 3 repos (horusict-site is private)
+# Variable (same page, Variables tab):
+#   ONEDRIVE_TOKEN_DATE    the day RCLONE_CONF was set (yyyy-mm-dd); a reminder issue opens at 75 days
+on:
+  schedule:
+    - cron: "41 1 * * *"     # 01:41 UTC = 03:41 Cairo
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: "daily, weekly or monthly"
+        default: daily
+
+permissions:
+  contents: read
+  issues: write      # the alert issue for the owner
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      REMOTE: "od:Horus Backups"
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq rclone gnupg >/dev/null
+          rclone version | head -1
+      - name: OneDrive access
+        env:
+          CONF: ${{ secrets.RCLONE_CONF }}
+        run: |
+          if [ -z "$CONF" ] || [ -z "$BACKUP_PASSPHRASE" ]; then echo "::error::Backup secrets are not set"; exit 1; fi
+          mkdir -p ~/.config/rclone
+          umask 077
+          printf '%s\n' "$CONF" > ~/.config/rclone/rclone.conf
+          grep -q '^\[od\]' ~/.config/rclone/rclone.conf || { echo "::error::RCLONE_CONF has no [od] remote"; exit 1; }
+          rclone mkdir "$REMOTE"
+      - name: Which tiers today
+        id: tier
+        env:
+          ASKED: ${{ github.event.inputs.tier }}   # passed as data, never pasted into the script
+        run: |
+          t="daily"
+          [ "$(date -u +%u)" = 7 ] && t="$t weekly"
+          [ "$(date -u +%d)" = 01 ] && t="$t monthly"
+          case "$ASKED" in
+            "") ;;
+            daily|weekly|monthly) t="$ASKED" ;;
+            *) echo "::error::tier must be daily, weekly or monthly"; exit 1 ;;
+          esac
+          echo "tiers=$t" >> "$GITHUB_OUTPUT"; echo "tiers: $t"
+      - name: Remind the owner to renew the OneDrive sign-in
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SET_ON: ${{ vars.ONEDRIVE_TOKEN_DATE }}   # yyyy-mm-dd, the day RCLONE_ONEDRIVE_TOKEN was set
+        run: |
+          [ -n "$SET_ON" ] || { echo "ONEDRIVE_TOKEN_DATE not set; no reminder"; exit 0; }
+          days=$(( ( $(date -u +%s) - $(date -u -d "$SET_ON" +%s) ) / 86400 ))
+          echo "OneDrive sign-in is $days days old"
+          if [ "$days" -ge 75 ] && [ -z "$(gh issue list -R "$GITHUB_REPOSITORY" --search "جدد تصريح OneDrive in:title" --state open --json number --jq '.[0].number')" ]; then
+            gh issue create -R "$GITHUB_REPOSITORY" --assignee medhatsaif010 --title "جدد تصريح OneDrive للباك أب" \
+              --body "تصريح OneDrive بقاله $days يوم، وممكن يقف قريب. شغّل على جهازك: rclone config reconnect od:، وحط محتوى ملف rclone.conf الناتج مكان RCLONE_CONF، وغيّر المتغير ONEDRIVE_TOKEN_DATE لتاريخ النهارده." || true
+          fi
+      - name: Collect
+        env:
+          GH_TOKEN: ${{ secrets.BACKUP_GH_TOKEN }}
+        run: |
+          set -euo pipefail
+          D=$(date -u +%Y-%m-%d)
+          W=work/horus-$D; mkdir -p $W/repos $W/apk $W/config
+          for r in horus-mobile horus-intel horusict-site; do
+            git clone -q --mirror "https://x-access-token:${GH_TOKEN}@github.com/medhatsaif010/$r" m/$r.git
+            git -C m/$r.git bundle create -q "$PWD/$W/repos/$r.bundle" --all
+            git -C m/$r.git bundle verify -q "$PWD/$W/repos/$r.bundle"
+            echo "$r $(git -C m/$r.git rev-parse HEAD)" >> $W/HEADS.txt
+          done
+          base=https://github.com/medhatsaif010/horus-mobile-releases/releases/download/apk
+          for f in HorusShield.apk version.json; do curl -sfL --retry 3 -o $W/apk/$f "$base/$f" || echo "::warning::$f not downloaded"; done
+          git -C m/horus-mobile.git archive HEAD app/src/main/assets/studio app/src/main/assets/intel-snapshot.json | tar -x -C $W/config
+          (cd $W && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+          tar -C work -cf - horus-$D | gzip -9 | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 \
+            --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512 --s2k-count 65011712 -o work/horus-$D.tar.gz.gpg 3<<<"$BACKUP_PASSPHRASE"
+          (cd work && sha256sum horus-$D.tar.gz.gpg > horus-$D.tar.gz.gpg.sha256)
+          ls -la work
+          echo "D=$D" >> "$GITHUB_ENV"
+      - name: Upload
+        run: |
+          set -euo pipefail
+          for t in ${{ steps.tier.outputs.tiers }}; do
+            rclone copy work/ "$REMOTE/$t/" --include "horus-$D.tar.gz.gpg*" --retries 5
+            rclone check work/ "$REMOTE/$t/" --include "horus-$D.tar.gz.gpg*" --one-way --download
+          done
+      - name: Retention
+        run: |
+          for t in ${{ steps.tier.outputs.tiers }}; do
+            case $t in daily) age=8d;; weekly) age=29d;; monthly) age=366d;; *) continue;; esac
+            # never delete if fewer than 3 backups would be left
+            n=$(rclone lsf "$REMOTE/$t/" --include "*.gpg" | wc -l)
+            if [ "$n" -gt 3 ]; then rclone delete "$REMOTE/$t/" --min-age $age --include "horus-*"; fi
+          done
+      - name: Restore test (Sundays and manual runs)
+        if: contains(steps.tier.outputs.tiers, 'weekly') || github.event_name == 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          rm -rf rt && mkdir rt
+          t=$(echo ${{ steps.tier.outputs.tiers }} | awk '{print $1}')
+          rclone copy "$REMOTE/$t/" rt/ --include "horus-$D.tar.gz.gpg*"
+          (cd rt && sha256sum -c horus-$D.tar.gz.gpg.sha256)
+          gpg --batch --pinentry-mode loopback --passphrase-fd 3 -d rt/horus-$D.tar.gz.gpg 3<<<"$BACKUP_PASSPHRASE" | tar -xz -C rt
+          (cd rt/horus-$D && sha256sum -c --quiet SHA256SUMS)
+          for b in rt/horus-$D/repos/*.bundle; do c="rt/clone-$(basename $b .bundle)"; git clone -q --mirror "$b" "$c"; git -C "$c" fsck --no-progress --no-dangling; done
+          echo "Restore test passed"
+      - name: Tell the owner if it failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create -R "$GITHUB_REPOSITORY" --assignee medhatsaif010 --title "Backup to OneDrive failed $(date -u +%Y-%m-%d)" \
+            --body "The backup run failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Open it, read the red step, and fix the secret or token it names." || true
