@@ -49,6 +49,12 @@ object App {
     var linkText by mutableStateOf("")
     var linkBusy by mutableStateOf(false)
     var linkResult: UrlResult? by mutableStateOf(null)
+    /** set when the link arrived because the user tapped it in another app (Horus Shield chosen as the browser) */
+    var linkTapped by mutableStateOf(false)
+    /** instant on-phone result for a tapped link: the bank or wallet the site pretends to be */
+    var linkLookAlike: UrlCheck.LookAlike? by mutableStateOf(null)
+    /** Horus Shield is the app that opens links, so every tapped link is checked first */
+    var linkGuard by mutableStateOf(false)
 
     var intel: IntelData? by mutableStateOf(null)
     var intelBusy by mutableStateOf(false)

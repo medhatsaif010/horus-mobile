@@ -20,26 +20,28 @@ import java.time.temporal.ChronoUnit
  * What leaves the phone: a header request to the link itself and the domain name to rdap.org.
  */
 object UrlCheck {
-    private class Brand(val n: String, val rx: Regex, val ok: List<String>)
+    /** money: 0 = not a bank or wallet, 1 = bank/wallet (look-alike spellings are checked), 2 = also a unique name, so the same name on another domain is a fake */
+    private class Brand(val n: String, val rx: Regex, val ok: List<String>, val money: Int = 0)
     private fun b(n: String, rx: String, vararg ok: String) = Brand(n, Regex(rx, RegexOption.IGNORE_CASE), ok.toList())
+    private fun m(money: Int, n: String, rx: String, vararg ok: String) = Brand(n, Regex(rx, RegexOption.IGNORE_CASE), ok.toList(), money)
 
     private val brands = listOf(
-        b("البنك الأهلي المصري / NBE", "(^|[.\\-])nbe([.\\-]|$)|alahly|ahly-?bank|nbe-?egypt", "nbe.com.eg", "alahlynet.com.eg"),
-        b("بنك مصر / Banque Misr", "banque-?misr|bm-?online", "banquemisr.com"),
-        b("CIB", "(^|[.\\-])cib([.\\-]|$)|cibeg|cib-?egypt", "cibeg.com"),
-        b("QNB", "(^|[.\\-])qnb", "qnb.com.eg", "qnbalahli.com", "qnb.com"),
-        b("AAIB", "(^|[.\\-])aaib([.\\-]|$)", "aaib.com"),
-        b("بنك القاهرة / Banque du Caire", "banque-?du-?caire|bdc-?(online|mobile|egypt)", "bdc.com.eg", "banqueducaire.com"),
-        b("AlexBank", "alex-?bank", "alexbank.com"),
-        b("InstaPay", "insta-?pay", "instapay.eg", "instapay.com.eg"),
-        b("Vodafone", "vodafone|vf-?cash", "vodafone.com.eg", "vodafone.eg", "vodafone.com"),
-        b("Orange", "orange-?(cash|money|egypt|eg)([.\\-]|$)", "orange.eg", "orange.com"),
-        b("e& / Etisalat", "etisalat|eand-?(egypt|money|cash)", "etisalat.eg", "eand.com.eg", "eand.com"),
-        b("WE / Telecom Egypt", "telecom-?egypt|te-?data|we-?pay", "te.eg", "telecomegypt.com"),
-        b("Fawry", "fawry", "fawry.com", "myfawry.com", "fawrypay.com"),
-        b("valU", "(^|[.\\-])valu([.\\-]|$)", "valu.com.eg"),
-        b("البريد المصري / Egypt Post", "egypt-?post|egpost", "egyptpost.gov.eg", "egyptpost.org", "egyptpost.com.eg"),
-        b("Meeza", "meeza", "meezadigital.com.eg", "ebc.com.eg"),
+        m(2, "البنك الأهلي المصري / NBE", "(^|[.\\-])nbe([.\\-]|$)|alahly|ahly-?bank|nbe-?egypt", "nbe.com.eg", "alahlynet.com.eg"),
+        m(2, "بنك مصر / Banque Misr", "banque-?misr|bm-?online", "banquemisr.com"),
+        m(2, "CIB", "(^|[.\\-])cib([.\\-]|$)|cibeg|cib-?egypt", "cibeg.com"),
+        m(1, "QNB", "(^|[.\\-])qnb", "qnb.com.eg", "qnbalahli.com", "qnb.com"),
+        m(2, "AAIB", "(^|[.\\-])aaib([.\\-]|$)", "aaib.com"),
+        m(2, "بنك القاهرة / Banque du Caire", "banque-?du-?caire|bdc-?(online|mobile|egypt)", "bdc.com.eg", "banqueducaire.com"),
+        m(2, "AlexBank", "alex-?bank", "alexbank.com"),
+        m(2, "InstaPay", "insta-?pay", "instapay.eg", "instapay.com.eg"),
+        m(1, "Vodafone", "vodafone|vf-?cash", "vodafone.com.eg", "vodafone.eg", "vodafone.com"),
+        m(1, "Orange", "orange-?(cash|money|egypt|eg)([.\\-]|$)", "orange.eg", "orange.com"),
+        m(1, "e& / Etisalat", "etisalat|eand-?(egypt|money|cash)", "etisalat.eg", "eand.com.eg", "eand.com"),
+        m(1, "WE / Telecom Egypt", "telecom-?egypt|te-?data|we-?pay", "te.eg", "telecomegypt.com"),
+        m(2, "Fawry", "fawry", "fawry.com", "myfawry.com", "fawrypay.com"),
+        m(1, "valU", "(^|[.\\-])valu([.\\-]|$)", "valu.com.eg"),
+        m(2, "البريد المصري / Egypt Post", "egypt-?post|egpost", "egyptpost.gov.eg", "egyptpost.org", "egyptpost.com.eg"),
+        m(2, "Meeza", "meeza", "meezadigital.com.eg", "ebc.com.eg"),
         b("PayPal", "paypa[l1]", "paypal.com", "paypal.me"),
         b("Facebook", "facebook|faceb00k|fb-?login", "facebook.com", "fb.com", "meta.com", "fb.me", "fb.watch"),
         b("WhatsApp", "whats-?app", "whatsapp.com", "whatsapp.net", "wa.me"),
@@ -72,6 +74,83 @@ object UrlCheck {
     }
 
     private fun under(h: String, list: List<String>) = list.any { h == it || h.endsWith(".$it") }
+
+    // ---- look-alike bank and wallet sites (works on the phone only, nothing is sent) ----
+    /** Letters that scam sites swap in because they look the same: Cyrillic/Greek letters, digits, rn for m. */
+    private val glyphs = mapOf('а' to 'a', 'е' to 'e', 'о' to 'o', 'р' to 'p', 'с' to 'c', 'у' to 'y', 'х' to 'x', 'і' to 'i', 'ј' to 'j', 'ѕ' to 's', 'ԁ' to 'd', 'ɡ' to 'g', 'һ' to 'h', 'ո' to 'n', 'ν' to 'v', 'α' to 'a', 'ο' to 'o', 'ι' to 'i', 'κ' to 'k', 'τ' to 't', 'ı' to 'i', 'ӏ' to 'l',
+        '0' to 'o', '1' to 'l', '3' to 'e', '4' to 'a', '5' to 's', '7' to 't', '8' to 'b', '@' to 'a', '$' to 's')
+    internal fun skeleton(label: String): String {
+        val x = label.lowercase().map { glyphs[it] ?: it }.joinToString("")
+        return x.replace("rn", "m").replace("vv", "w").replace("ii", "u")
+    }
+    /** Edit distance where swapping two neighbouring letters counts as one change. */
+    internal fun distance(a: String, b: String): Int {
+        val d = Array(a.length + 1) { IntArray(b.length + 1) }
+        for (i in 0..a.length) d[i][0] = i
+        for (j in 0..b.length) d[0][j] = j
+        for (i in 1..a.length) for (j in 1..b.length) {
+            val c = if (a[i - 1] == b[j - 1]) 0 else 1
+            d[i][j] = minOf(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + c)
+            if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) d[i][j] = minOf(d[i][j], d[i - 2][j - 2] + 1)
+        }
+        return d[a.length][b.length]
+    }
+    private fun firstLabel(domain: String) = domain.substringBefore('.')
+
+    /** A host that is spelled like an Egyptian bank or wallet site but is not one of its official domains. */
+    class LookAlike(val host: String, val brand: String, val official: String)
+
+    /**
+     * Pure check on the phone: no request is made. Finds misspellings (cibegg, banquemlsr, 1nstapay),
+     * swapped look-alike letters (Cyrillic а in nbe), and the official name on another domain (fawry.net).
+     */
+    fun lookAlike(hostIn: String): LookAlike? {
+        var h = hostIn.lowercase().trimEnd('.')
+        if (h.isEmpty() || ipv4.matches(h) || h.contains(':')) return null
+        if (h.split('.').any { it.startsWith("xn--") }) h = try { IDN.toUnicode(h, IDN.ALLOW_UNASSIGNED).lowercase() } catch (e: Exception) { h }
+        val ascii = try { IDN.toASCII(h, IDN.ALLOW_UNASSIGNED).lowercase() } catch (e: Exception) { h }
+        val money = brands.filter { it.money > 0 }
+        if (money.any { br -> under(ascii, br.ok) }) return null
+        val tokens = h.split('.').dropLast(1).flatMap { it.split('-', '_') }.filter { it.length >= 4 || (it.length == 3 && it.any { c -> c.code > 127 }) }.distinct()
+        for (br in money) for (off in br.ok) {
+            val o = firstLabel(off)
+            if (o.length < 3) continue
+            for (t in tokens) {
+                val sk = skeleton(t)
+                val exact = t == o
+                if (exact) {
+                    // the official name on a different domain, e.g. instapay.net or fawry.secure-login.top
+                    if (br.money == 2) return LookAlike(ascii, br.n, off)
+                    continue
+                }
+                if (o.length < 5) { if (sk == o) return LookAlike(ascii, br.n, off); continue }
+                if (sk == o) return LookAlike(ascii, br.n, off)
+                val dist = distance(sk, o)
+                // short names: only a swapped or replaced letter (cibeq), so ordinary words like "range" do not match "orange"
+                val hit = when {
+                    o.length >= 10 -> dist in 1..2
+                    o.length >= 7 -> dist == 1
+                    else -> dist == 1 && sk.length == o.length
+                }
+                if (hit) return LookAlike(ascii, br.n, off)
+            }
+        }
+        return null
+    }
+
+    /**
+     * Instant check of a link the user tapped in another app, on the phone only (no request leaves the phone).
+     * Returns the bank or wallet the site pretends to be, or null.
+     */
+    fun offline(text: String): LookAlike? {
+        var u = (extract(text) ?: text).trim().take(2048)
+        if (!Regex("^[a-zA-Z][a-zA-Z0-9+.\\-]*://").containsMatchIn(u)) u = "https://$u"
+        val host = try { val p = URI(u.replace(" ", "%20")); p.host ?: p.rawAuthority?.substringAfterLast('@')?.substringBefore(':') } catch (e: Exception) { null } ?: return null
+        val h = try { IDN.toASCII(host, IDN.ALLOW_UNASSIGNED).lowercase() } catch (e: Exception) { host.lowercase() }
+        // telecom names (money 1) are also real sites abroad (vodafone.de), so only the full check flags those
+        brands.firstOrNull { it.money == 2 && it.rx.containsMatchIn(h) && !under(h, it.ok) }?.let { return LookAlike(h, it.n, it.ok.first()) }
+        return lookAlike(h)
+    }
 
     /**
      * True when the host is, or resolves to, this phone, the local network or another private range.
@@ -198,6 +277,11 @@ object UrlCheck {
                 brandHit = true
                 sig("warn", "يحتوي الاسم على «${br.n}» لكن الموقع ليس على النطاق الرسمي الذي نعرفه (${br.ok.joinToString("، ")}). النطاق الفعلي: $reg.", "الاسم فيه «${br.n}» بس الموقع مش على الدومين الرسمي اللي نعرفه (${br.ok.joinToString("، ")}). الدومين الفعلي: $reg.",
                     "The name contains «${br.n}» but the site is not on the official domain we know (${br.ok.joinToString(", ")}). Actual domain: $reg.")
+            }
+            if (!isIp && !brandHit) lookAlike(h)?.let { la ->
+                brandHit = true
+                sig("warn", "اسم الموقع $h مكتوب ليشبه موقع «${la.brand}» الرسمي (${la.official}) لكنه ليس هو. هذا أسلوب معروف لسرقة بيانات البنوك والمحافظ.", "اسم الموقع $h متكتب علشان يتشبّه بموقع «${la.brand}» الرسمي (${la.official}) بس هو مش هو. ده أسلوب معروف لسرقة بيانات البنوك والمحافظ.",
+                    "The site name $h is spelled to look like the official «${la.brand}» site (${la.official}), but it is not. This is a known trick to steal bank and wallet logins.")
             }
         }
         val fh = final.host.lowercase()

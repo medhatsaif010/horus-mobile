@@ -100,6 +100,7 @@ class MainActivity : ComponentActivity() {
         App.maybeCheckUpdate()
         App.usageAccess = DeepScan.hasUsageAccess(this)
         App.notifyAllowed = AutoScan.notificationsAllowed(this)
+        App.linkGuard = com.horusict.shield.ui.isLinkGuard(this)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -124,6 +125,10 @@ class MainActivity : ComponentActivity() {
             // new features: write what they found to the log so the smoke test can assert on it
             if (i.getBooleanExtra("horus_repairsave", false)) Thread { RepairCheck.save(this, Collector.collect(this, false) { }); android.util.Log.i("HorusTest", "repair-saved") }.start()
             if (i.getBooleanExtra("horus_repaircompare", false)) { App.repairSavedAt = RepairCheck.savedAt(this); App.screen = Screen.REPAIR; App.repairCompare() }
+            if (i.getBooleanExtra("horus_lookalike", false)) {
+                val cases = listOf("c1beg-online.com", "banquemlsr.com", "instapay-eg.net", "nbe-eg.verify-account.top", "xn--nb-olc.com", "xn--fwry-53d.com", "cibeg.com", "www.nbe.com.eg", "google.com", "orange-range.com", "www.facebook.com")
+                android.util.Log.i("HorusTest", "lookalike " + cases.joinToString(" ") { c -> c + "=" + (UrlCheck.offline("https://$c/")?.official ?: "none") })
+            }
             i.getStringExtra("horus_alert")?.let { Studio.alert = Studio.parseAlert(it) }
             if (i.getBooleanExtra("horus_studio", false)) {
                 val saved = L.overrides
@@ -169,12 +174,26 @@ class MainActivity : ComponentActivity() {
             App.startScan(deep = true)
             return
         }
+        if (i != null && i.action == Intent.ACTION_VIEW && (i.data?.scheme?.lowercase() ?: "") in listOf("http", "https")) {
+            // a link the user tapped in WhatsApp, SMS or any app, with Horus Shield chosen as the browser.
+            // Only the on-phone look-alike check runs now; nothing is sent until the user taps Check link.
+            val link = i.data.toString().take(2048)
+            App.linkResult = null
+            App.linkText = link
+            App.linkLookAlike = UrlCheck.offline(link)
+            App.linkTapped = true
+            if (BuildConfig.DEBUG) android.util.Log.i("HorusTest", "tapped " + (App.linkLookAlike?.let { "lookalike ${it.host} as ${it.official}" } ?: "clean"))
+            App.screen = Screen.LINK
+            i.action = Intent.ACTION_MAIN
+            return
+        }
         if (i?.action != Intent.ACTION_SEND) return
         val text = i.getStringExtra(Intent.EXTRA_TEXT) ?: return
         // shared text only fills in the field: the check starts when the user taps Check link,
         // so another app cannot make Horus Shield send requests on its behalf
         val t = text.take(4000)
         App.linkResult = null
+        App.linkTapped = false; App.linkLookAlike = null
         App.linkText = (UrlCheck.extract(t) ?: t).take(2048)
         App.screen = Screen.LINK
         i.action = Intent.ACTION_MAIN

@@ -237,6 +237,19 @@ adb shell am start -n $A --es horus_lang en --ez horus_dump true
 sleep 15
 adb shell am start -n $A --es horus_lang en --ez horus_studio true
 sleep 3
+# links tapped in other apps (Horus Shield chosen as the browser): instant check for fake bank and wallet sites
+adb shell am start -n $A --es horus_lang en --ez horus_lookalike true
+sleep 3
+adb shell am start -a android.intent.action.VIEW -d "https://c1beg-online.com/login" -n $A --es horus_lang eg
+shot 40-tapped-fake-eg 4
+adb shell am start -a android.intent.action.VIEW -d "https://www.google.com/" -n $A --es horus_lang eg
+shot 41-tapped-ok-eg 4
+adb shell input swipe 160 560 160 120 400
+shot 41b-link-guard-eg 2
+adb shell am start -a android.intent.action.VIEW -d "https://banquemlsr.com/" -n $A --es horus_lang en
+shot 42-tapped-fake-en 4
+adb shell am start -a android.intent.action.VIEW -d "https://banquemlsr.com/" -n $A --es horus_lang ar
+shot 42b-tapped-fake-ar 4
 adb logcat -d -s HorusTest > shots/features.txt || true
 cat shots/features.txt
 adb shell am start -n $A --es horus_lang eg --es horus_screen bankapps
@@ -303,6 +316,9 @@ echo "expect: $STUDIO_EXPECT"
 need "$STUDIO_EXPECT"
 need "studio alert-parse=t1 inactive=null"
 need "community link=true clean=false phone=true"
+need "lookalike c1beg-online.com=cibeg.com banquemlsr.com=banquemisr.com instapay-eg.net=instapay.eg nbe-eg.verify-account.top=nbe.com.eg xn--nb-olc.com=nbe.com.eg xn--fwry-53d.com=fawry.com cibeg.com=none www.nbe.com.eg=none google.com=none orange-range.com=none www.facebook.com=none"
+need "tapped lookalike c1beg-online.com as cibeg.com"
+need "tapped clean"
 cat shots/assert.txt
 adb shell am start -n $A --ez horus_selftest true
 sleep 6

@@ -40,6 +40,15 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Links the user taps in any app: Horus Shield can be chosen as the browser, checks the link
+                 on the phone for fake bank and wallet sites, then hands it to the real browser. -->
+            <intent-filter android:label="افحص بـ Horus Shield">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+            </intent-filter>
             <intent-filter android:label="افحص بـ Horus Shield">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
