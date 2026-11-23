@@ -1,0 +1,71 @@
+name: Key vault to OneDrive
+
+# Run by hand only. Takes the secrets that cannot be made again (the official signing key and its
+# password), checks that the password really opens the key, packs them with a README, encrypts the
+# pack with BACKUP_PASSPHRASE (AES-256, gpg) and puts it in OneDrive "Horus Backups/vault".
+# Nothing is published: no artifact, no release, and the files never appear in the log.
+# To open it on Windows: Kleopatra > Decrypt/Verify > BACKUP_PASSPHRASE, then open the .tar.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vault:
+    runs-on: ubuntu-latest
+    environment: release      # only from main; the signing secrets may later live only here
+    timeout-minutes: 10
+    env:
+      REMOTE: "od:Horus Backups/vault"
+    steps:
+      - name: Tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq rclone gnupg >/dev/null
+      - name: Build, check, encrypt and upload
+        env:
+          KEYSTORE_B64: ${{ secrets.HORUS_RELEASE_KEYSTORE }}
+          STORE_PASS: ${{ secrets.HORUS_RELEASE_STORE_PASSWORD }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          CONF: ${{ secrets.RCLONE_CONF }}
+        run: |
+          set -euo pipefail
+          umask 077
+          for v in KEYSTORE_B64 STORE_PASS BACKUP_PASSPHRASE CONF; do [ -n "${!v}" ] || { echo "::error::$v is not set"; exit 1; }; done
+          W="$RUNNER_TEMP/vault"; D=$(date -u +%Y-%m-%d); mkdir -p "$W/horus-vault-$D" ~/.config/rclone
+          printf '%s\n' "$CONF" > ~/.config/rclone/rclone.conf
+          V="$W/horus-vault-$D"
+          echo "$KEYSTORE_B64" | base64 -d > "$V/horus-shield-release.keystore"
+          printf '%s' "$STORE_PASS" > "$V/HORUS_RELEASE_STORE_PASSWORD.txt"
+          # the password must open the key, or the vault is useless
+          FP=$(keytool -list -v -keystore "$V/horus-shield-release.keystore" -storepass:env STORE_PASS -alias horussec 2>/dev/null | awk '/SHA256:/{print $2; exit}')
+          [ -n "$FP" ] || { echo "::error::The stored password does not open the signing key"; exit 1; }
+          echo "Signing key opens. Certificate SHA-256: $FP"
+          printf '%s\n' "$FP" > "$V/fingerprint.txt"
+          cat > "$V/README.txt" <<TXT
+          Horus Shield key vault, made $D by GitHub Actions (vault.yml).
+
+          horus-shield-release.keystore   the official release signing key (alias: horussec)
+          HORUS_RELEASE_STORE_PASSWORD.txt its password (store and key use the same one)
+          fingerprint.txt                  certificate SHA-256, must match what the app's updates expect
+
+          Without this key and password, Horus Shield can never publish an update that installed phones accept.
+          Keep this file in at least two places (OneDrive + a USB stick). The passphrase that opens it is
+          BACKUP_PASSPHRASE: keep it on paper or in a password manager, not next to this file.
+
+          To put the key back into GitHub: base64 the keystore (PowerShell:
+          [Convert]::ToBase64String([IO.File]::ReadAllBytes("horus-shield-release.keystore")) | Set-Clipboard)
+          into secret HORUS_RELEASE_KEYSTORE, and the password into HORUS_RELEASE_STORE_PASSWORD.
+          TXT
+          sed -i 's/^          //' "$V/README.txt"
+          tar -C "$W" -cf - "horus-vault-$D" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 \
+            --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512 --s2k-count 65011712 \
+            -o "$W/horus-vault-$D.tar.gpg" 3<<<"$BACKUP_PASSPHRASE"
+          # prove it decrypts back to the same key before uploading
+          gpg --batch --pinentry-mode loopback --passphrase-fd 3 -d "$W/horus-vault-$D.tar.gpg" 3<<<"$BACKUP_PASSPHRASE" 2>/dev/null \
+            | tar -xO "horus-vault-$D/horus-shield-release.keystore" | cmp -s - "$V/horus-shield-release.keystore" \
+            || { echo "::error::Encrypted vault does not decrypt back"; exit 1; }
+          rclone mkdir "$REMOTE"
+          rclone copyto "$W/horus-vault-$D.tar.gpg" "$REMOTE/horus-vault-$D.tar.gpg"
+          rclone check "$W" "$REMOTE" --include "horus-vault-$D.tar.gpg" --one-way --download
+          echo "Vault uploaded: Horus Backups/vault/horus-vault-$D.tar.gpg ($(stat -c %s "$W/horus-vault-$D.tar.gpg") bytes)"
+          rm -rf "$W" ~/.config/rclone
