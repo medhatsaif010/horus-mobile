@@ -27,7 +27,7 @@ on:
         default: daily
 
 permissions:
-  contents: read
+  contents: write    # the "backup-status" pre-release that Horus Studio reads (no code is changed)
   issues: write      # the alert issue for the owner
 
 concurrency:
@@ -131,6 +131,33 @@ jobs:
           (cd rt/horus-$D && sha256sum -c --quiet SHA256SUMS)
           for b in rt/horus-$D/repos/*.bundle; do c="rt/clone-$(basename $b .bundle)"; git clone -q --mirror "$b" "$c"; git -C "$c" fsck --no-progress --no-dangling; done
           echo "Restore test passed"
+      - name: Report to Horus Studio
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ job.status }}
+          TIERS: ${{ steps.tier.outputs.tiers }}
+          RESTORE: ${{ contains(steps.tier.outputs.tiers, 'weekly') || github.event_name == 'workflow_dispatch' }}
+        run: |
+          set +e
+          rclone lsjson -R "$REMOTE" --files-only --include "*.gpg" > files.json 2>/dev/null || echo "[]" > files.json
+          python3 - <<'PY'
+          import json, os, datetime
+          try: files = json.load(open("files.json"))
+          except Exception: files = []
+          out = {
+            "at": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            "ok": os.environ["RESULT"] == "success",
+            "tiers": os.environ.get("TIERS", "").split(),
+            "restoreTested": os.environ.get("RESTORE") == "true" and os.environ["RESULT"] == "success",
+            "run": f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+            "files": sorted(({"path": f["Path"], "size": f["Size"], "at": f["ModTime"]} for f in files), key=lambda f: f["path"], reverse=True),
+          }
+          json.dump(out, open("backup.json", "w"), indent=1)
+          print(json.dumps({k: v for k, v in out.items() if k != "files"}), len(out["files"]), "files")
+          PY
+          gh release view backup-status -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create backup-status -R "$GITHUB_REPOSITORY" --prerelease --title "Backup status" --notes "Latest OneDrive backup status, read by Horus Studio. Not for users." >/dev/null
+          gh release upload backup-status backup.json -R "$GITHUB_REPOSITORY" --clobber
       - name: Tell the owner if it failed
         if: failure()
         env:

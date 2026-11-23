@@ -149,6 +149,30 @@ if TOKEN:
     except Exception:
         pass
 
+# 6. the OneDrive backup (written by .github/workflows/backup.yml)
+if TOKEN:
+    try:
+        rel = api(f"/repos/{REPO}/releases/tags/backup-status")
+        a = next((x for x in rel["assets"] if x["name"] == "backup.json"), None)
+        b = None
+        if a:
+            req = urllib.request.Request(a["url"], headers={"Authorization": f"Bearer {TOKEN}", "Accept": "application/octet-stream", "User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=40) as r:
+                b = json.load(r)
+        if b:
+            age_h = (datetime.now(timezone.utc) - datetime.fromisoformat(b["at"].replace("Z", "+00:00"))).total_seconds() / 3600
+            if not b.get("ok"):
+                add("backup", "bad", "آخر باك أب فشل", f"من {int(age_h)} ساعة.", "افتح «الباك أب» في Studio وشوف السبب.")
+            elif age_h > 36:
+                add("backup", "bad", "الباك أب متعملش من أكتر من يوم", f"آخر باك أب ناجح من {int(age_h)} ساعة.", "افتح «الباك أب» في Studio واعمل باك أب دلوقتي.")
+            else:
+                add("backup", "ok", "الباك أب شغال", f"آخر نسخة ناجحة من {int(age_h)} ساعة، و{len(b.get('files', []))} نسخة محفوظة على OneDrive.")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            add("backup", "warn", "مفيش باك أب لسه", "أول باك أب على OneDrive لسه ماتعملش.")
+    except Exception as e:
+        add("backup", "warn", "مش قادر أقرا حالة الباك أب", str(e)[:120])
+
 order = {"bad": 2, "warn": 1, "ok": 0}
 overall = max((c["status"] for c in checks), key=lambda s: order[s], default="ok")
 out = {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "status": overall, "live": (live or {}).get("versionName"), "checks": checks}
