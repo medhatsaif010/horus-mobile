@@ -31,6 +31,8 @@ jobs:
           set -euo pipefail
           umask 077
           for v in KEYSTORE_B64 STORE_PASS BACKUP_PASSPHRASE CONF; do [ -n "${!v}" ] || { echo "::error::$v is not set"; exit 1; }; done
+          # a short check code (first 8 hex of SHA-256), safe to show, to compare with the owner's password file
+          echo "BACKUP_PASSPHRASE check code: $(printf '%s' "$BACKUP_PASSPHRASE" | sha256sum | cut -c1-8) (length ${#BACKUP_PASSPHRASE})"
           W="$RUNNER_TEMP/vault"; D=$(date -u +%Y-%m-%d); mkdir -p "$W/horus-vault-$D" ~/.config/rclone
           printf '%s\n' "$CONF" > ~/.config/rclone/rclone.conf
           V="$W/horus-vault-$D"
