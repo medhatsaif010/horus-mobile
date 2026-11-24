@@ -137,6 +137,13 @@ class MainActivity : ComponentActivity() {
                 android.util.Log.i("HorusTest", "studio override=" + L.t("الخدمات", "الخدمات", "Services") + " keep=" + L.t("التقارير", "التقارير", "Reports") + " lang=" + lang)
                 L.overrides = saved
                 android.util.Log.i("HorusTest", "studio features=" + Studio.homeOrder.size + " helplines=" + Studio.helplines.size + " brands=" + EgApps.brands.size + " bank=" + Studio.on("bank"))
+                fun frame(type: Int, len: Int, status: Int, n: Int) = ByteArray(n).also { it[0] = type.toByte(); if (n > 1) it[1] = len.toByte(); if (n > 2) it[2] = status.toByte() }
+                val cats = listOf(frame(0x12, 0x19, 0x10, 27), frame(0x12, 0x19, 0x30, 27), frame(0x12, 0x19, 0x00, 27), frame(0x12, 0x02, 0x10, 4), frame(0x07, 0x19, 0x10, 27), frame(0x12, 0x19, 0x10, 20)).map { Trackers.appleCategory(it) }
+                val t0 = 1_700_000_000_000L
+                val mv = Trackers.movesWith(listOf(Trackers.Spot(t0, 30.000, 31.000), Trackers.Spot(t0 + 20 * 60_000L, 30.010, 31.000)))
+                val still = Trackers.movesWith(listOf(Trackers.Spot(t0, 30.000, 31.000), Trackers.Spot(t0 + 3 * 3600_000L, 30.000, 31.001)))
+                val quick = Trackers.movesWith(listOf(Trackers.Spot(t0, 30.000, 31.000), Trackers.Spot(t0 + 5 * 60_000L, 30.010, 31.000)))
+                android.util.Log.i("HorusTest", "trackers cats=" + cats.joinToString(",") + " moving=$mv still=$still quick=$quick")
                 android.util.Log.i("HorusTest", "studio alert-parse=" + (Studio.parseAlert("{\"active\":true,\"id\":\"t1\",\"text\":{\"en\":\"Test\"}}")?.id) + " inactive=" + Studio.parseAlert("{\"active\":false,\"id\":\"t2\",\"text\":{\"en\":\"x\"}}"))
             }
             if (i.getBooleanExtra("horus_dump", false)) Thread {

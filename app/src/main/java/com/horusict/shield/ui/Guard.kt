@@ -255,19 +255,28 @@ fun TrackersScreen() {
                 Text(when (p) {
                     "nobt" -> L.t("هذا الهاتف لا يدعم Bluetooth Low Energy.", "الموبايل ده مش بيدعم Bluetooth Low Energy.", "This phone does not support Bluetooth Low Energy.")
                     "off" -> L.t("شغّل البلوتوث ثم اضغط ابدأ البحث.", "شغّل البلوتوث ودوس ابدأ الدوّير.", "Turn on Bluetooth, then tap Start searching.")
-                    "location" -> L.t("شغّل خدمة الموقع. يشترطها أندرويد للبحث عن أجهزة البلوتوث، ولا يستخدم Horus Shield موقعك.", "شغّل الموقع (Location). أندرويد بيطلبه للدوّير على أجهزة البلوتوث، وHorus Shield مش بيستخدم موقعك.", "Turn on Location. Android requires it to search for Bluetooth devices; Horus Shield does not use your location.")
-                    "perm" -> L.t("يلزم إذن الأجهزة القريبة والموقع. يشترطهما أندرويد للبحث، ولا يُحفظ موقعك ولا يُرسل.", "محتاج إذن الأجهزة القريبة والموقع. أندرويد بيطلبهم للدوّير، وموقعك مش بيتحفظ ولا بيتبعت.", "Nearby devices and location permission are needed. Android requires them to search; your location is never saved or sent.")
+                    "location" -> L.t("شغّل خدمة الموقع. يشترطها أندرويد للبحث عن أجهزة البلوتوث، ولا يحفظ Horus Shield إلا مكانًا تقريبيًا على الهاتف لمدة 24 ساعة.", "شغّل الموقع (Location). أندرويد بيطلبه للدوّير على أجهزة البلوتوث، وHorus Shield بيحفظ مكان تقريبي بس على الموبايل لمدة 24 ساعة.", "Turn on Location. Android requires it to search for Bluetooth devices; Horus Shield keeps only a rough place, on the phone, for 24 hours.")
+                    "perm" -> L.t("يلزم إذن الأجهزة القريبة والموقع. يشترطهما أندرويد للبحث، ولا يُرسل موقعك إلى أي جهة.", "محتاج إذن الأجهزة القريبة والموقع. أندرويد بيطلبهم للدوّير، وموقعك مش بيتبعت لأي حد.", "Nearby devices and location permission are needed. Android requires them to search; your location is never sent anywhere.")
                     else -> L.t("تعذّر بدء البحث. أوقف البلوتوث وشغّله ثم حاول مرة أخرى.", "مقدرناش نبدأ الدوّير. اقفل البلوتوث وافتحه وجرّب تاني.", "Could not start searching. Turn Bluetooth off and on, then try again.")
                 }, color = C.Text, fontSize = 14.sp)
             }
         }
         val list = Trackers.seen.sortedByDescending { it.rssi }
+        // "moving with you" needs the same tracker at different places over time, never a single scan
+        val moving = remember(Trackers.scanning, list.size) { list.filter { Trackers.movingWithYou(it.addr) }.map { it.addr }.toSet() }
+        if (moving.isNotEmpty()) AccentPanel(C.Danger) {
+            Text(L.t("جهاز تتبع غير معروف قد يكون يتحرك معك", "جهاز تتبع مش معروف ممكن يكون بيتحرك معاك", "Unknown tracker may be moving with you"), color = C.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(L.t("ظهر الجهاز نفسه قريبًا منك في أماكن مختلفة خلال اليوم. فتّش حقيبتك وملابسك وسيارتك.", "نفس الجهاز ظهر جنبك في أماكن مختلفة النهارده. فتّش شنطتك وهدومك وعربيتك.", "The same tracker was near you at different places today. Check your bag, clothes and car."), color = C.Text2, fontSize = 13.sp)
+        }
         if (list.isNotEmpty()) {
             SectionTitle(L.t("أجهزة قريبة (${list.size})", "أجهزة قريبة (${list.size})", "Nearby trackers (${list.size})"))
             list.forEach { s ->
                 val mins = ((s.last - s.first) / 60_000L)
-                HCard(Modifier.fillMaxWidth(), border = if (s.rssi >= -70) C.Warn.copy(alpha = 0.7f) else null) {
-                    Text(Trackers.kindName(s.kind), color = C.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                val mv = s.addr in moving
+                HCard(Modifier.fillMaxWidth(), border = if (mv) C.Danger else if (s.rssi >= -70) C.Warn.copy(alpha = 0.7f) else null) {
+                    Text(Trackers.label(s), color = C.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    if (mv) Text(L.t("قد يكون يتحرك معك", "ممكن يكون بيتحرك معاك", "May be moving with you"), color = C.Danger, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    else Text(L.t("قريب منك الآن", "قريب منك دلوقتي", "Near you now"), color = C.Muted, fontSize = 13.sp)
                     Text(Trackers.distance(s.rssi) + "  ·  ${s.rssi} dBm", color = if (s.rssi >= -70) C.Warn else C.Muted, fontSize = 13.sp)
                     Text(L.t("ظاهر منذ $mins دقيقة", "ظاهر من $mins دقيقة", "Seen for $mins min") + "  ·  " + s.addr, color = C.Dim, fontSize = 12.sp, style = Ltr)
                 }
@@ -276,6 +285,10 @@ fun TrackersScreen() {
             AccentPanel(C.Safe) { Text(L.t("لم يُعثر على أي جهاز تتبع قريب.", "ملقيناش أي جهاز تتبع قريب.", "No trackers found nearby."), color = C.Safe, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
         }
         SectionTitle(L.t("كيف تقرأ النتيجة", "تقرا النتيجة إزاي", "How to read the result"))
+        Text(L.t("بحث واحد يوضح ما هو قريب منك الآن فقط. ابحث مرة أخرى بعد أن تنتقل إلى مكان آخر: إن ظهر الجهاز نفسه في أكثر من مكان، فسيخبرك Horus Shield أنه قد يتحرك معك. لذلك يحفظ الهاتف مكانًا تقريبيًا (نحو 100 متر) لكل جهاز تتبع، على الهاتف فقط ولمدة 24 ساعة، ولا يُرسل إلى أي جهة.",
+            "دوّير واحد بيقولك اللي قريب منك دلوقتي بس. دوّر تاني بعد ما تروح مكان تاني: لو نفس الجهاز ظهر في أكتر من مكان، Horus Shield هيقولك إنه ممكن يكون بيتحرك معاك. علشان كده الموبايل بيحفظ مكان تقريبي (حوالي 100 متر) لكل جهاز تتبع، على الموبايل بس ولمدة 24 ساعة، ومش بيتبعت لأي حد.",
+            "One search only shows what is near you now. Search again after you move somewhere else: if the same tracker shows up in more than one place, Horus Shield tells you it may be moving with you. For that the phone keeps a rough place (about 100 m) for each tracker, on the phone only and for 24 hours, and never sends it anywhere."), color = C.Text2, fontSize = 13.sp)
+        ActionText(L.t("امسح الأماكن المحفوظة", "امسح الأماكن المتحفظة", "Clear saved places"), C.Muted) { Trackers.forget() }
         Text(L.t("ظهور جهاز من شبكة Apple Find My طبيعي إن كان بجانبك شخص لديه آيفون أو سماعات AirPods. لكن إن ظهر الجهاز نفسه وبقي قريبًا جدًا منك في أماكن مختلفة، أو بقي معك بعد ابتعادك عن الناس، فابحث في حقيبتك وملابسك وسيارتك: اقترب حتى تصبح الإشارة «قريب جدًا منك».",
             "ظهور جهاز من شبكة Apple Find My طبيعي لو جنبك حد معاه آيفون أو سماعات AirPods. لكن لو نفس الجهاز ظهر وفضل قريب منك جدًا في أماكن مختلفة، أو فضل معاك بعد ما بعدت عن الناس، دوّر في شنطتك وهدومك وعربيتك: قرّب لحد ما الإشارة تبقى «قريب منك جدًا».",
             "An Apple Find My device is normal if someone near you has an iPhone or AirPods. But if the same device stays very close to you in different places, or stays with you after you move away from people, search your bag, clothes and car: move until the signal says \"Very close to you\"."), color = C.Text2, fontSize = 13.sp)
