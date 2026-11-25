@@ -261,24 +261,33 @@ fun TrackersScreen() {
                 }, color = C.Text, fontSize = 14.sp)
             }
         }
-        val list = Trackers.seen.sortedByDescending { it.rssi }
         // "moving with you" needs the same tracker at different places over time, never a single scan
-        val moving = remember(Trackers.scanning, list.size) { list.filter { Trackers.movingWithYou(it.addr) }.map { it.addr }.toSet() }
-        if (moving.isNotEmpty()) AccentPanel(C.Danger) {
+        val blips = remember(Trackers.seen.toList(), Trackers.scanning) {
+            Trackers.seen.map { s ->
+                val places = Trackers.placesSeen(s); val mv = Trackers.movingWithYou(s); val sc = Trackers.score(s, places, mv)
+                Blip(s, sc, Trackers.level(sc), Trackers.zone(s), Trackers.meters(s), places, mv)
+            }.sortedByDescending { it.score }
+        }
+        var picked by remember { mutableStateOf<Int?>(null) }
+        if (blips.any { it.moving }) AccentPanel(C.Danger) {
             Text(L.t("جهاز تتبع غير معروف قد يكون يتحرك معك", "جهاز تتبع مش معروف ممكن يكون بيتحرك معاك", "Unknown tracker may be moving with you"), color = C.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Text(L.t("ظهر الجهاز نفسه قريبًا منك في أماكن مختلفة خلال اليوم. فتّش حقيبتك وملابسك وسيارتك.", "نفس الجهاز ظهر جنبك في أماكن مختلفة النهارده. فتّش شنطتك وهدومك وعربيتك.", "The same tracker was near you at different places today. Check your bag, clothes and car."), color = C.Text2, fontSize = 13.sp)
         }
-        if (list.isNotEmpty()) {
-            SectionTitle(L.t("أجهزة قريبة (${list.size})", "أجهزة قريبة (${list.size})", "Nearby trackers (${list.size})"))
-            list.forEach { s ->
-                val mins = ((s.last - s.first) / 60_000L)
-                val mv = s.addr in moving
-                HCard(Modifier.fillMaxWidth(), border = if (mv) C.Danger else if (s.rssi >= -70) C.Warn.copy(alpha = 0.7f) else null) {
+        if (Trackers.scanning || blips.isNotEmpty()) {
+            TrackerRadar(blips, Trackers.scanning, picked) { picked = it }
+            val sel = blips.firstOrNull { it.s.id == picked }
+            if (sel != null) BlipCard(sel)
+            else if (blips.isNotEmpty()) Text(L.t("اضغط على أي نقطة لتعرف تفاصيلها. المسافة تقريبية، والاتجاه على الرادار ليس الاتجاه الحقيقي.", "دوس على أي نقطة تعرف تفاصيلها. المسافة تقريبية، والاتجاه على الرادار مش الاتجاه الحقيقي.", "Tap a dot for details. Distance is rough, and the direction on the radar is not the real direction."), color = C.Muted, fontSize = 12.sp)
+        }
+        if (blips.isNotEmpty()) {
+            SectionTitle(L.t("أجهزة قريبة (${blips.size})", "أجهزة قريبة (${blips.size})", "Nearby trackers (${blips.size})"))
+            blips.forEach { b ->
+                val s = b.s
+                HCard(Modifier.fillMaxWidth(), border = if (b.level > 0) levelColor(b.level).copy(alpha = if (b.level == 2) 1f else 0.7f) else null, onClick = { picked = s.id }) {
                     Text(Trackers.label(s), color = C.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                    if (mv) Text(L.t("قد يكون يتحرك معك", "ممكن يكون بيتحرك معاك", "May be moving with you"), color = C.Danger, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    else Text(L.t("قريب منك الآن", "قريب منك دلوقتي", "Near you now"), color = C.Muted, fontSize = 13.sp)
-                    Text(Trackers.distance(s.rssi) + "  ·  ${s.rssi} dBm", color = if (s.rssi >= -70) C.Warn else C.Muted, fontSize = 13.sp)
-                    Text(L.t("ظاهر منذ $mins دقيقة", "ظاهر من $mins دقيقة", "Seen for $mins min") + "  ·  " + s.addr, color = C.Dim, fontSize = 12.sp, style = Ltr)
+                    Text(Trackers.levelName(b.level) + "  ·  ${b.score}/100", color = levelColor(b.level), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(Trackers.zoneName(b.zone) + "  ·  ${s.rssi} dBm", color = if (b.zone <= 1) C.Warn else C.Muted, fontSize = 13.sp)
+                    Text(L.t("ظاهر منذ ${(s.last - s.first) / 60_000L} دقيقة", "ظاهر من ${(s.last - s.first) / 60_000L} دقيقة", "Seen for ${(s.last - s.first) / 60_000L} min") + "  ·  " + s.addr, color = C.Dim, fontSize = 12.sp, style = Ltr)
                 }
             }
         } else if (!Trackers.scanning && Trackers.startedAt > 0 && Trackers.problem == null) {

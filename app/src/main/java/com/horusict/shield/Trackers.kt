@@ -32,8 +32,13 @@ import kotlinx.coroutines.launch
  */
 object Trackers {
     enum class Kind { APPLE, SAMSUNG, TILE, GOOGLE, DULT }
-    /** [apple]: device category from Apple's Find My frame (see [appleCategory]); null when the frame does not carry one. */
-    data class Seen(val addr: String, val kind: Kind, val rssi: Int, val best: Int, val first: Long, val last: Long, val hits: Int, val apple: Int? = null)
+    /**
+     * [apple]: device category from Apple's Find My frame (see [appleCategory]); null when the frame does not carry one.
+     * [id]: stays the same when the tracker changes its Bluetooth address (see [pickStitch]); [aka] keeps its old addresses.
+     * [smooth]: the signal after smoothing (see [smoothNext]); [sep]: true when an Apple tracker is away from its owner.
+     */
+    data class Seen(val addr: String, val kind: Kind, val rssi: Int, val best: Int, val first: Long, val last: Long, val hits: Int, val apple: Int? = null,
+                    val id: Int = 0, val smooth: Double = rssi.toDouble(), val sep: Boolean? = null, val aka: List<String> = emptyList())
 
     val seen = mutableStateListOf<Seen>()
     var scanning by mutableStateOf(false)
@@ -41,6 +46,8 @@ object Trackers {
     var problem by mutableStateOf<String?>(null)
     var startedAt by mutableStateOf(0L)
     private var cb: ScanCallback? = null
+    private val windows = HashMap<Int, ArrayDeque<Int>>()
+    private var nextId = 1
     private var timer: Job? = null
 
     fun permissions(): Array<String> = if (Build.VERSION.SDK_INT >= 31)
@@ -65,6 +72,57 @@ object Trackers {
         if (d == null || d.size < 2 + 25 || d[0] != 0x12.toByte() || d[1] != 0x19.toByte()) return null
         return (d[2].toInt() shr 4) and 0x03
     }
+
+    /**
+     * Whether an Apple Find My device is away from its owner. Near its owner it sends a short frame
+     * (type 0x12, length 0x02); away from its owner it sends the long frame with its key (length 0x19).
+     * A tracker that is away from its owner and stays with you is the case that matters.
+     */
+    fun appleSeparated(d: ByteArray?): Boolean? {
+        if (d == null || d.size < 2 || d[0] != 0x12.toByte()) return null
+        return when (d[1]) { 0x19.toByte() -> true; 0x02.toByte() -> false; else -> null }
+    }
+
+    // ------------------------------------------------------------------ steadier readings
+    /** Median of the last readings (drops single jumps), then eased toward it so the dot does not jump around. */
+    fun smoothNext(prev: Double?, window: List<Int>): Double {
+        if (window.isEmpty()) return prev ?: -100.0
+        val med = window.sorted()[window.size / 2].toDouble()
+        return if (prev == null) med else prev + 0.4 * (med - prev)
+    }
+
+    private fun push(id: Int, rssi: Int): List<Int> {
+        val w = windows.getOrPut(id) { ArrayDeque() }
+        w.addLast(rssi); while (w.size > 7) w.removeFirst()
+        return w.toList()
+    }
+
+    /** Signal strength at about 1 metre for each kind of tracker (rough values measured on common models). */
+    fun ref(kind: Kind, apple: Int?): Int = when (kind) {
+        Kind.APPLE -> if (apple == 1) -59 else -62
+        Kind.SAMSUNG -> -63
+        Kind.TILE -> -66
+        Kind.GOOGLE -> -62
+        Kind.DULT -> -61
+    }
+
+    /** Rough distance in metres from the signal. Walls, bags and bodies change it, so it is only shown as a zone. */
+    fun meters(ref: Int, rssi: Double): Double = Math.pow(10.0, (ref - rssi) / (10 * 2.3))
+    fun meters(s: Seen): Double = meters(ref(s.kind, s.apple), s.smooth)
+
+    /** 0 under 1 m, 1 from 1 to 3 m, 2 from 3 to 10 m, 3 farther. */
+    fun zoneOf(m: Double): Int = when { m < 1.0 -> 0; m < 3.0 -> 1; m < 10.0 -> 2; else -> 3 }
+    fun zone(s: Seen): Int = zoneOf(meters(s))
+
+    /**
+     * Trackers change their Bluetooth address from time to time, so one tracker can look like a new one.
+     * When a new address shows up just after one of the same kind went quiet, with about the same signal,
+     * treat it as the same tracker.
+     */
+    fun pickStitch(list: List<Seen>, kind: Kind, apple: Int?, rssi: Int, now: Long): Seen? =
+        list.filter { it.kind == kind && it.hits >= 3 && (apple == null || it.apple == null || it.apple == apple) &&
+            now - it.last in 3_000L..30_000L && Math.abs(rssi - it.smooth) <= 10.0 }
+            .minByOrNull { Math.abs(rssi - it.smooth) }
 
     fun classify(r: ScanResult): Kind? {
         val rec = r.scanRecord ?: return null
@@ -94,17 +152,25 @@ object Trackers {
         if (!adapter.isEnabled) { problem = "off"; return }
         if (!locationOn(ctx)) { problem = "location"; return }
         val scanner = adapter.bluetoothLeScanner ?: run { problem = "off"; return }
-        seen.clear()
+        seen.clear(); windows.clear()
         val callback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
                 val k = classify(result) ?: return
                 val addr = result.device?.address ?: return
-                val cat = if (k == Kind.APPLE) appleCategory(result.scanRecord?.getManufacturerSpecificData(0x004C)) else null
+                val apple = if (k == Kind.APPLE) result.scanRecord?.getManufacturerSpecificData(0x004C) else null
+                val cat = appleCategory(apple)
+                val sp = appleSeparated(apple)
+                val rssi = result.rssi
                 val now = System.currentTimeMillis()
                 App.scope.launch {
+                    fun upd(s: Seen, extra: Seen.() -> Seen = { this }): Seen = s.copy(rssi = rssi, smooth = smoothNext(s.smooth, push(s.id, rssi)), best = maxOf(s.best, rssi),
+                        last = now, hits = s.hits + 1, apple = cat ?: s.apple, sep = sp ?: s.sep).extra()
                     val i = seen.indexOfFirst { it.addr == addr }
-                    if (i < 0) seen.add(Seen(addr, k, result.rssi, result.rssi, now, now, 1, cat))
-                    else { val s = seen[i]; seen[i] = s.copy(rssi = result.rssi, best = maxOf(s.best, result.rssi), last = now, hits = s.hits + 1, apple = cat ?: s.apple) }
+                    if (i >= 0) { seen[i] = upd(seen[i]); return@launch }
+                    val st = pickStitch(seen, k, cat, rssi, now)
+                    if (st != null) { val j = seen.indexOf(st); seen[j] = upd(st) { copy(addr = addr, aka = (st.aka + st.addr).takeLast(8)) }; return@launch }
+                    val id = nextId++
+                    seen.add(Seen(addr, k, rssi, rssi, now, now, 1, cat, id, smoothNext(null, push(id, rssi)), sp))
                 }
             }
             override fun onScanFailed(errorCode: Int) { App.scope.launch { problem = "fail"; scanning = false } }
@@ -208,6 +274,58 @@ object Trackers {
 
     fun movingWithYou(addr: String): Boolean = load()[addr]?.let { movesWith(it) } == true
     fun placesSeen(addr: String): Int = load()[addr]?.size ?: 0
+
+    private fun spotsOf(m: Map<String, List<Spot>>, s: Seen) = (s.aka + s.addr).flatMap { m[it] ?: emptyList() }.sortedBy { it.t }
+    /** Same as [movingWithYou], also counting the addresses the tracker used before. */
+    fun movingWithYou(s: Seen): Boolean = movesWith(spotsOf(load(), s))
+    /** How many different places (about 100 m) the tracker was seen at today. */
+    fun placesSeen(s: Seen): Int = spotsOf(load(), s).map { it.lat to it.lon }.distinct().size
+
+    /** Debug builds only: fills the list with sample trackers so the smoke test can show the radar. */
+    fun demo() {
+        val now = System.currentTimeMillis()
+        seen.clear()
+        seen.add(Seen("DE:MO:00:00:00:01", Kind.APPLE, -61, -58, now - 40 * 60_000L, now, 120, 1, 1, -61.0, true))
+        seen.add(Seen("DE:MO:00:00:00:02", Kind.SAMSUNG, -74, -70, now - 12 * 60_000L, now, 40, null, 2, -74.0, null))
+        seen.add(Seen("DE:MO:00:00:00:03", Kind.TILE, -90, -88, now - 60_000L, now, 3, null, 3, -90.0, null))
+        seen.add(Seen("DE:MO:00:00:00:04", Kind.APPLE, -80, -77, now - 2 * 60_000L, now, 9, 3, 4, -80.0, false))
+        val m = load()
+        m["DE:MO:00:00:00:01"] = mutableListOf(Spot(now - 50 * 60_000L, 30.044, 31.235), Spot(now - 10 * 60_000L, 30.058, 31.262))
+        save(m)
+        startedAt = now - 75_000L
+    }
+
+    // ------------------------------------------------------------------ how worrying is it
+    /**
+     * 0 to 100. Being seen at different places, away from its owner, for a long time and close to you raise it;
+     * a tracker that is with its owner, or AirPods or a phone, keep it low. One reading never makes it high on its own.
+     */
+    fun score(s: Seen, places: Int, moving: Boolean): Int {
+        var x = 10.0
+        if (s.sep == true) x += 25 else if (s.sep == false) x -= 10
+        x += minOf((s.last - s.first) / 60_000.0, 30.0) / 30.0 * 20
+        if (zone(s) <= 1) x += 10
+        if (moving) x += 40 else if (places >= 2) x += 15
+        if (s.apple == 3) x = minOf(x, 20.0)
+        if (s.apple == 0) x = minOf(x, 40.0)
+        return x.toInt().coerceIn(0, 100)
+    }
+
+    /** 2 may be following you, 1 keep an eye on it, 0 most likely passing by. */
+    fun level(score: Int): Int = when { score >= 60 -> 2; score >= 30 -> 1; else -> 0 }
+
+    fun levelName(l: Int): String = when (l) {
+        2 -> L.t("قد يكون يتتبعك", "ممكن يكون بيتتبعك", "May be following you")
+        1 -> L.t("راقبه", "خلّي عينك عليه", "Keep an eye on it")
+        else -> L.t("غالبًا عابر", "غالبًا معدّي", "Most likely passing by")
+    }
+
+    fun zoneName(z: Int): String = when (z) {
+        0 -> L.t("أقل من متر تقريبًا", "أقل من متر تقريبًا", "Under 1 m, roughly")
+        1 -> L.t("من 1 إلى 3 أمتار تقريبًا", "من 1 لـ 3 متر تقريبًا", "1 to 3 m, roughly")
+        2 -> L.t("من 3 إلى 10 أمتار تقريبًا", "من 3 لـ 10 متر تقريبًا", "3 to 10 m, roughly")
+        else -> L.t("أبعد من 10 أمتار", "أبعد من 10 متر", "Farther than 10 m")
+    }
 
     /** What to call a device on screen: the Find My category when the frame carries one, else the network. */
     fun label(s: Seen): String = if (s.kind == Kind.APPLE) when (s.apple) {

@@ -264,6 +264,10 @@ adb shell input swipe 160 560 160 160 500
 shot 33b-whatsapp-eg 2
 adb shell am start -n $A --es horus_lang ar --es horus_screen trackers
 shot 34-trackers-ar 3
+adb shell am start -n $A --es horus_lang eg --es horus_screen radar
+shot 34b-radar-eg 3
+adb shell input swipe 160 560 160 200 500
+shot 34c-radar-list-eg 2
 adb shell am start -n $A --es horus_lang eg --es horus_screen help
 shot 35-help-eg 3
 adb shell input swipe 160 560 160 160 500
@@ -316,6 +320,7 @@ echo "expect: $STUDIO_EXPECT"
 need "$STUDIO_EXPECT"
 need "studio alert-parse=t1 inactive=null"
 need "trackers cats=1,3,0,null,null,null moving=true still=false quick=false"
+need "radar checks=15/15"
 need "lookalike c1beg-online.com=cibeg.com banquemlsr.com=banquemisr.com instapay-eg.net=instapay.eg nbe-eg.verify-account.top=nbe.com.eg xn--nb-olc.com=nbe.com.eg xn--fwry-53d.com=fawry.com cibeg.com=none www.nbe.com.eg=none google.com=none orange-range.com=none www.facebook.com=none"
 need "tapped lookalike c1beg-online.com as cibeg.com"
 need "tapped clean"
