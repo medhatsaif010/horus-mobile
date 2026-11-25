@@ -113,7 +113,7 @@ class MainActivity : ComponentActivity() {
             // test hooks used by the automated smoke test (debug builds only)
             i.getStringExtra("horus_lang")?.let { App.setLang(it) }
             i.getStringExtra("horus_theme")?.let { App.chooseTheme(it) }
-            when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME; "legal" -> App.screen = Screen.LEGAL; "settings" -> App.screen = Screen.SETTINGS; "link" -> App.screen = Screen.LINK; "tools" -> App.screen = Screen.TOOLS; "reports" -> App.screen = Screen.REPORTS; "ask" -> com.horusict.shield.ui.Ask.open(Screen.TOOLS); "bankapps" -> App.screen = Screen.BANKAPPS; "repair" -> App.screen = Screen.REPAIR; "whatsapp" -> App.screen = Screen.WHATSAPP; "trackers" -> App.screen = Screen.TRACKERS; "help" -> App.screen = Screen.HELP; "scamreport" -> App.screen = Screen.SCAMREPORT }
+            when (i.getStringExtra("horus_screen")) { "about" -> App.screen = Screen.ABOUT; "home" -> App.screen = Screen.HOME; "legal" -> App.screen = Screen.LEGAL; "settings" -> App.screen = Screen.SETTINGS; "link" -> App.screen = Screen.LINK; "tools" -> App.screen = Screen.TOOLS; "reports" -> App.screen = Screen.REPORTS; "ask" -> com.horusict.shield.ui.Ask.open(Screen.TOOLS); "bankapps" -> App.screen = Screen.BANKAPPS; "repair" -> App.screen = Screen.REPAIR; "whatsapp" -> App.screen = Screen.WHATSAPP; "trackers" -> App.screen = Screen.TRACKERS; "radar" -> { Trackers.demo(); App.screen = Screen.TRACKERS }; "help" -> App.screen = Screen.HELP; "scamreport" -> App.screen = Screen.SCAMREPORT }
             if (i.getBooleanExtra("horus_autoscan", false)) App.startScan(deep = i.getBooleanExtra("horus_deep", true))
             if (i.getBooleanExtra("horus_rootmode", false)) { App.rootDetected = true; App.enableRoot() }
             if (i.hasExtra("horus_auto")) App.setAuto(i.getIntExtra("horus_auto", 0))
@@ -144,6 +144,26 @@ class MainActivity : ComponentActivity() {
                 val still = Trackers.movesWith(listOf(Trackers.Spot(t0, 30.000, 31.000), Trackers.Spot(t0 + 3 * 3600_000L, 30.000, 31.001)))
                 val quick = Trackers.movesWith(listOf(Trackers.Spot(t0, 30.000, 31.000), Trackers.Spot(t0 + 5 * 60_000L, 30.010, 31.000)))
                 android.util.Log.i("HorusTest", "trackers cats=" + cats.joinToString(",") + " moving=$mv still=$still quick=$quick")
+                val ok = mutableListOf<Boolean>()
+                ok += Trackers.zoneOf(Trackers.meters(-66, -60.0)) == 0
+                ok += Trackers.zoneOf(Trackers.meters(-66, -75.0)) == 1
+                ok += Trackers.zoneOf(Trackers.meters(-66, -85.0)) == 2
+                ok += Trackers.zoneOf(Trackers.meters(-66, -95.0)) == 3
+                ok += Trackers.smoothNext(null, listOf(-60, -90, -61)) == -61.0
+                ok += Trackers.smoothNext(-61.0, listOf(-60, -90, -61, -71, -71)) == -65.0
+                ok += Trackers.appleSeparated(frame(0x12, 0x19, 0x10, 27)) == true
+                ok += Trackers.appleSeparated(frame(0x12, 0x02, 0x10, 4)) == false
+                ok += Trackers.appleSeparated(frame(0x07, 0x19, 0x10, 27)) == null
+                val a = Trackers.Seen("AA", Trackers.Kind.APPLE, -60, -60, t0, t0, 5, 1, 1, -60.0, true)
+                ok += Trackers.pickStitch(listOf(a), Trackers.Kind.APPLE, 1, -63, t0 + 6_000L)?.addr == "AA"
+                ok += Trackers.pickStitch(listOf(a), Trackers.Kind.APPLE, 1, -63, t0 + 60_000L) == null
+                ok += Trackers.pickStitch(listOf(a), Trackers.Kind.APPLE, 1, -90, t0 + 6_000L) == null
+                ok += Trackers.pickStitch(listOf(a), Trackers.Kind.TILE, null, -63, t0 + 6_000L) == null
+                val follower = a.copy(last = t0 + 40 * 60_000L)
+                ok += Trackers.level(Trackers.score(follower, 3, true)) == 2
+                val pods = Trackers.Seen("BB", Trackers.Kind.APPLE, -80, -80, t0, t0 + 60_000L, 5, 3, 2, -80.0, false)
+                ok += Trackers.level(Trackers.score(pods, 1, false)) == 0
+                android.util.Log.i("HorusTest", "radar checks=${ok.count { it }}/${ok.size}" + ok.withIndex().filter { !it.value }.joinToString("") { " fail${it.index}" })
                 android.util.Log.i("HorusTest", "studio alert-parse=" + (Studio.parseAlert("{\"active\":true,\"id\":\"t1\",\"text\":{\"en\":\"Test\"}}")?.id) + " inactive=" + Studio.parseAlert("{\"active\":false,\"id\":\"t2\",\"text\":{\"en\":\"x\"}}"))
             }
             if (i.getBooleanExtra("horus_dump", false)) Thread {
