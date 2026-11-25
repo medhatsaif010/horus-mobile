@@ -55,6 +55,7 @@ private fun bearing(id: Int): Float = ((id * 137.508) % 360.0).toFloat()
  * lights each tracker as it passes. Colour is how worrying it is and shape is the kind, so neither
  * carries the meaning alone. Tapping a dot selects it.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TrackerRadar(blips: List<Blip>, scanning: Boolean, selected: Int?, onSelect: (Int?) -> Unit) {
     val ctx = LocalContext.current
@@ -107,13 +108,14 @@ fun TrackerRadar(blips: List<Blip>, scanning: Boolean, selected: Int?, onSelect:
             if (blips.isEmpty() && !scanning) drawCircle(dim.copy(alpha = 0.2f), r * 0.12f, c, style = Stroke(1.dp.toPx()))
         }
     }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-        listOf(2, 1, 0).forEach { l ->
-            Text("● " + Trackers.levelName(l), color = levelColor(l), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 6.dp))
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        listOf(2, 1, 0).forEach { l -> Text("● " + Trackers.levelName(l), color = levelColor(l), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) }
+    }
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        listOf("● AirTag/Apple", "■ SmartTag", "▲ Tile", "◆ Google", "○ " + L.t("أخرى", "غيره", "other")).forEach {
+            Text(it, color = C.Dim, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
         }
     }
-    Text(L.t("● AirTag/Apple   ■ SmartTag   ▲ Tile   ◆ Google   ○ أخرى", "● AirTag/Apple   ■ SmartTag   ▲ Tile   ◆ Google   ○ غيره", "● AirTag/Apple   ■ SmartTag   ▲ Tile   ◆ Google   ○ other"),
-        color = C.Dim, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
 }
 
 private fun pos(c: Offset, r: Float, b: Blip): Offset {
