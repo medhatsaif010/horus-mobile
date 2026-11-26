@@ -56,7 +56,7 @@ jobs:
           APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
           FP=$("$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk | grep -m1 "SHA-256 digest" | awk '{print $NF}')
           echo "Release signer: $FP"
-          [ "$FP" = "bd3bd3050eed7972efa58454c8c3132ca5a73da9926f6d7ada4f5e51428c5167" ] || { echo "::error::Release APK is not signed with the official key"; exit 1; }
+          [ "$FP" = "3f67b5bf649625fc2df684bdcdb349dee07f332af814c7cc1e4fdfe2dc44b042" ] || { echo "::error::Release APK is not signed with the official key"; exit 1; }
           mkdir -p apks
           cp app/build/outputs/apk/debug/app-debug.apk apks/
           cp app/build/outputs/apk/release/app-release.apk apks/
