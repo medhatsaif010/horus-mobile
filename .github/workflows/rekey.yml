@@ -1,0 +1,96 @@
+name: New signing key (Horus ICT)
+
+# Run by hand, once, before the public launch. Makes the new official signing key in the name of
+# Horus ICT, keeps an encrypted copy in OneDrive "Horus Backups/vault" FIRST, and only then puts it
+# into the "release" environment secrets (which take over from the old repository secrets).
+# The old key (CN=Medhat Saif) stays in the vault and is not deleted.
+# Nothing secret is printed or published. It refuses to run twice (variable HORUS_KEY2_FP).
+#
+# Needs, in the "release" environment, a short-lived secret REKEY_TOKEN: a fine-grained token for
+# this repository only, with Secrets, Environments and Variables set to Read and write.
+# Delete that secret and revoke the token right after the run.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type NEW-KEY-HORUS-ICT to make the new key'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  rekey:
+    if: github.actor == 'medhatsaif010' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 15
+    env:
+      REMOTE: "od:Horus Backups/vault"
+    steps:
+      - name: Checks
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          DONE: ${{ vars.HORUS_KEY2_FP }}
+          T: ${{ secrets.REKEY_TOKEN }}
+          BP: ${{ secrets.BACKUP_PASSPHRASE }}
+          CONF: ${{ secrets.RCLONE_CONF }}
+        run: |
+          [ "$CONFIRM" = "NEW-KEY-HORUS-ICT" ] || { echo "::error::Type NEW-KEY-HORUS-ICT to confirm"; exit 1; }
+          [ -z "$DONE" ] || { echo "::error::The new key was already made (fingerprint $DONE). Refusing to make another one."; exit 1; }
+          [ -n "$T" ] || { echo "::error::Add REKEY_TOKEN to the release environment first"; exit 1; }
+          [ "${#BP}" -ge 20 ] && [ -n "$CONF" ] || { echo "::error::BACKUP_PASSPHRASE or RCLONE_CONF is missing"; exit 1; }
+      - name: Tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq rclone gnupg >/dev/null
+      - name: Make the key, back it up, then install it
+        env:
+          GH_TOKEN: ${{ secrets.REKEY_TOKEN }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          CONF: ${{ secrets.RCLONE_CONF }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          umask 077
+          P=$(openssl rand -base64 64 | tr -dc 'A-Za-z0-9' | head -c 40)
+          [ "${#P}" -eq 40 ] || { echo "::error::Could not make a password"; exit 1; }
+          echo "::add-mask::$P"
+          export P
+          D=$(date -u +%Y-%m-%d); W="$RUNNER_TEMP/k"; N="horus-signing-key-horusict-$D"; V="$W/$N"; mkdir -p "$V"
+          # 1. the key: RSA 4096, valid 30 years, owner Horus ICT
+          keytool -genkeypair -keystore "$V/horus-shield-release.keystore" -storetype PKCS12 -alias horussec \
+            -keyalg RSA -keysize 4096 -sigalg SHA256withRSA -validity 10950 \
+            -dname "CN=Horus ICT, O=Horus ICT, L=Cairo, C=EG" -storepass:env P -keypass:env P 2>/dev/null
+          FP=$(keytool -list -v -keystore "$V/horus-shield-release.keystore" -storepass:env P -alias horussec 2>/dev/null | awk '/SHA256:/{print $2; exit}')
+          [ -n "$FP" ] || { echo "::error::The new key does not open"; exit 1; }
+          printf '%s' "$P" > "$V/HORUS_RELEASE_STORE_PASSWORD.txt"
+          printf '%s\n' "$FP" > "$V/fingerprint.txt"
+          cat > "$V/README.txt" <<TXT
+          Horus Shield signing key, owner Horus ICT, made $D by GitHub Actions (rekey.yml).
+
+          horus-shield-release.keystore    the official release signing key (PKCS12, alias: horussec)
+          HORUS_RELEASE_STORE_PASSWORD.txt its password (store and key use the same one)
+          fingerprint.txt                  certificate SHA-256: $FP
+
+          From this key on, every Horus Shield release must be signed with it. Without it and its
+          password, no update can ever reach installed phones. Keep this file in two places at least
+          (OneDrive + a USB stick). It opens with BACKUP_PASSPHRASE.
+          TXT
+          sed -i 's/^          //' "$V/README.txt"
+          # 2. encrypted copy to OneDrive first, and prove it decrypts, before anything else changes
+          mkdir -p ~/.config/rclone; printf '%s\n' "$CONF" > ~/.config/rclone/rclone.conf
+          tar -C "$W" -cf - "$N" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 \
+            --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512 --s2k-count 65011712 -o "$W/$N.tar.gpg" 3<<<"$BACKUP_PASSPHRASE"
+          gpg --batch --pinentry-mode loopback --passphrase-fd 3 -d "$W/$N.tar.gpg" 3<<<"$BACKUP_PASSPHRASE" 2>/dev/null \
+            | tar -xO "$N/horus-shield-release.keystore" | cmp -s - "$V/horus-shield-release.keystore" \
+            || { echo "::error::Encrypted copy does not decrypt back"; exit 1; }
+          rclone mkdir "$REMOTE"
+          rclone copyto "$W/$N.tar.gpg" "$REMOTE/$N.tar.gpg"
+          rclone check "$W" "$REMOTE" --include "$N.tar.gpg" --one-way --download
+          echo "Backed up: Horus Backups/vault/$N.tar.gpg"
+          # 3. install it as the release environment's signing secrets, then mark it done
+          base64 -w0 "$V/horus-shield-release.keystore" | gh secret set HORUS_RELEASE_KEYSTORE --env release --repo "$REPO"
+          printf '%s' "$P" | gh secret set HORUS_RELEASE_STORE_PASSWORD --env release --repo "$REPO"
+          gh variable set HORUS_KEY2_FP --repo "$REPO" --body "$FP"
+          rm -rf "$W" ~/.config/rclone
+          echo "New signing key is installed. Certificate SHA-256: $FP"
+          echo "Next: delete REKEY_TOKEN from the release environment and revoke the token."
