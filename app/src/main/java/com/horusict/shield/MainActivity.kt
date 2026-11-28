@@ -164,6 +164,24 @@ class MainActivity : ComponentActivity() {
                 val pods = Trackers.Seen("BB", Trackers.Kind.APPLE, -80, -80, t0, t0 + 60_000L, 5, 3, 2, -80.0, false)
                 ok += Trackers.level(Trackers.score(pods, 1, false)) == 0
                 android.util.Log.i("HorusTest", "radar checks=${ok.count { it }}/${ok.size}" + ok.withIndex().filter { !it.value }.joinToString("") { " fail${it.index}" })
+                val bk = mutableListOf<Boolean>()
+                fun im(label: String) = EgApps.imitatesName(label)?.name
+                bk += im("lnstaPay") == "InstaPay"
+                bk += im("انستا باى") == "InstaPay"
+                bk += im("Vodafone Kash") == "Vodafone Cash"
+                bk += im("Orange Cach") == "Orange Cash"
+                bk += im("البنك الاهلى المصرى") == "NBE Mobile"
+                bk += im("Banque Misrr") == "Banque Misr"
+                bk += im("Ϝawry") == null || im("Ϝawry") == "Fawry"
+                bk += im("Calculator") == null
+                bk += im("Telegram") == null
+                bk += im("E-Money Wallet") == null
+                bk += im("WhatsApp") == null
+                bk += EgApps.certMismatch(setOf("AA11"), listOf("BB22"))
+                bk += !EgApps.certMismatch(setOf("AA11"), listOf("aa11"))
+                bk += !EgApps.certMismatch(null, listOf("BB22"))
+                bk += !EgApps.certMismatch(emptySet(), listOf("BB22"))
+                android.util.Log.i("HorusTest", "bank checks=${bk.count { it }}/${bk.size}" + bk.withIndex().filter { !it.value }.joinToString("") { " fail${it.index}" })
                 android.util.Log.i("HorusTest", "studio alert-parse=" + (Studio.parseAlert("{\"active\":true,\"id\":\"t1\",\"text\":{\"en\":\"Test\"}}")?.id) + " inactive=" + Studio.parseAlert("{\"active\":false,\"id\":\"t2\",\"text\":{\"en\":\"x\"}}"))
             }
             if (i.getBooleanExtra("horus_dump", false)) Thread {

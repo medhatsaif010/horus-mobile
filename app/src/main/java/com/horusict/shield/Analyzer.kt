@@ -121,8 +121,8 @@ object Analyzer {
             val brand = EgApps.brandOf(a.pkg)
             if (brand == null && a.pkg !in EgApps.whatsappOfficial) continue
             val label = brand?.let { L.t(it.nameAr, it.nameAr, it.name) } ?: "WhatsApp"
-            val pin = pins[a.pkg]
-            if (pin != null && a.certSha1.isNotEmpty() && a.certSha1.none { it.uppercase() in pin }) {
+            val pin = EgApps.expected(a.pkg, pins)
+            if (EgApps.certMismatch(pin, a.certSha1)) {
                 finHits.add(a.pkg)
                 findings.add(Finding(
                     key = "eg-signature-changed:${a.pkg}", sev = Sev.CRIT, ioc = true, pkg = a.pkg,
@@ -133,7 +133,7 @@ object Analyzer {
                     todo = L.t("لا تفتحه ولا تُدخل فيه أي بيانات. احذفه ونزّل الرسمي من Google Play، واتصل بالبنك أو الشركة لتأمين حسابك وتغيير الرقم السري.", "متفتحوش ومتكتبش فيه أي بيانات. امسحه ونزّل الرسمي من Google Play، وكلّم البنك أو الشركة يأمّنوا حسابك وغيّر الـ PIN.",
                         "Do not open it or type anything into it. Uninstall it, get the official app from Google Play, and call the bank or company to secure your account and change your PIN."),
                     evidence = listOf("${L.t("التطبيق", "التطبيق", "App")}: ${name(a.pkg)} ${a.version}", "${L.t("المصدر", "المصدر", "Installer")}: ${inst(a)}",
-                        "${L.t("التوقيع المسجّل", "التوقيع المتسجّل", "Recorded signature")}: ${pin.first().take(20)}…", "${L.t("التوقيع الحالي", "التوقيع الحالي", "Current signature")}: ${a.certSha1.first().take(20)}…"),
+                        "${L.t("التوقيع الرسمي", "التوقيع الرسمي", "Official signature")}: ${pin.orEmpty().firstOrNull().orEmpty().take(20)}…", "${L.t("التوقيع الحالي", "التوقيع الحالي", "Current signature")}: ${a.certSha1.first().take(20)}…"),
                     fixes = listOf(Fix.UNINSTALL, Fix.APP_SETTINGS),
                 ))
             } else if (brand != null && isSide(a) && a.pkg !in stalkerPkgs) {
@@ -192,21 +192,77 @@ object Analyzer {
                 fixes = listOf(Fix.UNINSTALL, Fix.APP_SETTINGS),
             ))
         }
+        // 3c. apps from a store that use a bank's or wallet's name and hold powerful access: not the official app, worth checking
+        for (a in user) {
+            if (isSide(a) || a.pkg in finHits || a.pkg in stalkerPkgs || EgApps.brandOf(a.pkg) != null || a.pkg in EgApps.whatsappOfficial) continue
+            val b = EgApps.imitates(a) ?: continue
+            val pw = buildList {
+                if (a.pkg in d.accessibility) add("Accessibility")
+                if (a.pkg in d.notifListeners) add(L.t("الوصول إلى الإشعارات", "قراية الإشعارات", "Notification access"))
+                if (a.overlay) add(L.t("الظهور فوق التطبيقات", "الظهور فوق التطبيقات", "Display over other apps"))
+                if (a.granted.any { it == Manifest.permission.READ_SMS || it == Manifest.permission.RECEIVE_SMS }) add("SMS")
+            }
+            if (pw.isEmpty()) continue
+            val bn = L.t(b.nameAr, b.nameAr, b.name)
+            finHits.add(a.pkg)
+            findings.add(Finding(
+                key = "finance-lookalike:${a.pkg}", sev = Sev.MED, pkg = a.pkg,
+                title = L.t("تطبيق يحمل اسم $bn وليس التطبيق الرسمي: ${a.label}", "تطبيق شايل اسم $bn ومش التطبيق الرسمي: ${a.label}", "App uses the name of $bn but is not the official app: ${a.label}"),
+                why = L.t("جاء من متجر، لكنه ليس تطبيق $bn الرسمي، ويملك صلاحيات قوية. تظهر أحيانًا في المتجر تطبيقات مزيفة لفترة قصيرة قبل حذفها.", "جاي من متجر، بس مش تطبيق $bn الرسمي، ومعاه صلاحيات قوية. ساعات بتظهر في المتجر تطبيقات مزيفة لفترة قصيرة قبل ما تتشال.",
+                    "It came from a store, but it is not the official $bn app, and it holds powerful access. Fake apps sometimes appear in stores for a short time before they are removed."),
+                todo = L.t("تأكد من اسم المطوّر في صفحة التطبيق على Google Play. إن لم يكن البنك أو الشركة نفسها، فاحذفه ولا تُدخل فيه بياناتك.", "اتأكد من اسم المطوّر في صفحة التطبيق على Google Play. لو مش البنك أو الشركة نفسها، امسحه ومتدخلش فيه بياناتك.",
+                    "Check the developer name on the app's Google Play page. If it is not the bank or company itself, uninstall it and do not enter your details."),
+                evidence = listOf("${L.t("التطبيق", "التطبيق", "App")}: ${name(a.pkg)} ${a.version}", "${L.t("المصدر", "المصدر", "Installer")}: ${inst(a)}") + pw.map { "${L.t("صلاحية", "صلاحية", "Access")}: $it" },
+                fixes = listOf(Fix.APP_SETTINGS, Fix.UNINSTALL),
+            ))
+        }
+        // 3d. the default SMS app is from outside a store: it receives every OTP before anything else
+        d.defaultSms?.let { pkg ->
+            val a = user.firstOrNull { it.pkg == pkg } ?: return@let
+            if (!isSide(a) || a.pkg in stalkerPkgs) return@let
+            finHits.add(a.pkg)
+            findings.add(Finding(
+                key = "default-sms:${a.pkg}", sev = Sev.HIGH, ioc = true, pkg = a.pkg,
+                title = L.t("تطبيق الرسائل الافتراضي مثبّت من خارج المتجر: ${a.label}", "تطبيق الرسايل الأساسي متسطّب من برّه المتجر: ${a.label}", "The default SMS app was installed from outside a store: ${a.label}"),
+                why = L.t("تطبيق الرسائل الافتراضي يستلم كل رسالة قبل غيره، ومنها رموز OTP من البنوك والمحافظ، ويستطيع إخفاءها. ولذلك تحاول أحصنة طروادة المصرفية أن تصبح تطبيق الرسائل الافتراضي.",
+                    "تطبيق الرسايل الأساسي بيستلم كل رسالة قبل أي حد، ومنها أكواد OTP من البنوك والمحافظ، ويقدر يخبّيها. علشان كده أحصنة طروادة البنكية بتحاول تبقى تطبيق الرسايل الأساسي.",
+                    "The default SMS app receives every message first, including OTP codes from banks and wallets, and can hide them. That is why banking trojans try to become the default SMS app."),
+                todo = L.t("اجعل تطبيق الرسائل الأصلي (مثل Google Messages) هو الافتراضي من الإعدادات، ثم احذف هذا التطبيق إن لم تكن تعرفه.", "خلّي تطبيق الرسايل الأصلي (زي Google Messages) هو الأساسي من الإعدادات، وبعدين امسح التطبيق ده لو مش عارفه.",
+                    "Make the phone's own messages app (such as Google Messages) the default in Settings, then uninstall this app if you do not know it."),
+                evidence = listOf("${L.t("التطبيق", "التطبيق", "App")}: ${name(a.pkg)}", "${L.t("المصدر", "المصدر", "Installer")}: ${inst(a)}", "${L.t("تاريخ التثبيت", "اتسطّب", "Installed")}: ${date(a.pkg)}"),
+                fixes = listOf(Fix.APP_SETTINGS, Fix.UNINSTALL),
+            ))
+        }
         val bankerPkgs = HashSet<String>()
         for (a in user) {
             if (!isSide(a) || a.pkg in finHits || a.pkg in stalkerPkgs || a.pkg in hidden) continue
             val sms = a.granted.filter { it == Manifest.permission.READ_SMS || it == Manifest.permission.RECEIVE_SMS }
+            val acc = a.pkg in d.accessibility
+            val notif = a.pkg in d.notifListeners
+            val admin = a.pkg in d.admins
             val pw = ArrayList<String>()
-            if (a.pkg in d.accessibility) pw.add("Accessibility")
+            if (acc) pw.add("Accessibility")
             if (a.overlay) pw.add(L.t("الظهور فوق التطبيقات", "الظهور فوق التطبيقات", "Display over other apps"))
-            if (a.pkg in d.notifListeners) pw.add(L.t("الوصول إلى الإشعارات", "قراية الإشعارات", "Notification access"))
-            if (sms.isEmpty() || pw.isEmpty()) continue
+            if (notif) pw.add(L.t("الوصول إلى الإشعارات", "قراية الإشعارات", "Notification access"))
+            if (admin) pw.add(L.t("مسؤول جهاز", "Device admin", "Device admin"))
+            if (a.canInstall == true) pw.add(L.t("تثبيت تطبيقات أخرى", "تسطيب تطبيقات تانية", "Install other apps"))
+            // OTP can be stolen from SMS or from notifications; control comes from Accessibility or overlays.
+            // Accessibility together with device admin, or with installing other apps, is how droppers and RATs stay in.
+            val otpAndControl = (sms.isNotEmpty() || notif) && (acc || a.overlay)
+            val entrenched = acc && (admin || a.canInstall == true)
+            if (!otpAndControl && !entrenched) continue
+            val recent = d.atMillis - a.firstInstall in 0..7L * 24 * 3600_000
             bankerPkgs.add(a.pkg)
             findings.add(Finding(
-                key = "banker-pattern:${a.pkg}", sev = Sev.HIGH, ioc = true, pkg = a.pkg,
-                title = L.t("تطبيق من خارج المتجر يقرأ الرسائل ويملك صلاحيات تحكم: ${a.label}", "تطبيق من برّه المتجر بيقرا الرسايل ومعاه صلاحيات تحكم: ${a.label}", "Sideloaded app reads SMS and has control access: ${a.label}"),
-                why = L.t("الجمع بين قراءة الرسائل وAccessibility أو الظهور فوق التطبيقات هو ما تحتاجه أحصنة طروادة المصرفية لسرقة رمز OTP وتحويل الأموال دون أن تشعر.", "قراية الرسايل مع Accessibility أو الظهور فوق التطبيقات هي التركيبة اللي أحصنة طروادة البنكية محتاجاها علشان تسرق كود OTP وتحوّل فلوس من غير ما تحس.",
-                    "Reading SMS together with Accessibility or screen overlays is exactly what banking trojans need to steal OTP codes and move money unnoticed."),
+                key = "banker-pattern:${a.pkg}", sev = if (recent) Sev.CRIT else Sev.HIGH, ioc = true, pkg = a.pkg,
+                title = L.t("تطبيق من خارج المتجر يملك صلاحيات حصان طروادة مصرفي: ${a.label}", "تطبيق من برّه المتجر معاه صلاحيات حصان طروادة بنكي: ${a.label}", "Sideloaded app has banking-trojan access: ${a.label}"),
+                why = (if (otpAndControl) L.t("يستطيع قراءة رموز OTP (من الرسائل أو الإشعارات) ويتحكم في الشاشة أو يرسم فوقها. هذه هي التركيبة التي تحتاجها أحصنة طروادة المصرفية لسرقة الحساب وتحويل الأموال دون أن تشعر.",
+                        "يقدر يقرا أكواد OTP (من الرسايل أو الإشعارات) ويتحكم في الشاشة أو يرسم فوقها. دي التركيبة اللي أحصنة طروادة البنكية محتاجاها علشان تسرق الحساب وتحوّل فلوس من غير ما تحس.",
+                        "It can read OTP codes (from SMS or notifications) and control or draw over the screen. That is exactly what banking trojans need to take over an account and move money unnoticed.")
+                    else L.t("يملك Accessibility مع صلاحية مسؤول الجهاز أو تثبيت تطبيقات أخرى. بهذا تثبّت البرامج الخبيثة نفسها، وتمنع حذفها، وتنزّل حصان طروادة مصرفيًا لاحقًا.",
+                        "معاه Accessibility مع صلاحية مسؤول الجهاز أو تسطيب تطبيقات تانية. كده البرامج الخبيثة بتثبّت نفسها، وتمنع مسحها، وتنزّل حصان طروادة بنكي بعدين.",
+                        "It has Accessibility together with device admin or the right to install other apps. That is how malware digs in, blocks its own removal and later drops a banking trojan.")) +
+                    (if (recent) L.t(" ثُبّت خلال الأيام السبعة الماضية.", " اتسطّب في آخر 7 أيام.", " It was installed in the last 7 days.") else ""),
                 todo = L.t("إن لم تكن تعرف هذا التطبيق جيدًا فاحذفه، وراجع حركات حساباتك البنكية ومحافظك.", "لو مش عارف التطبيق ده كويس امسحه، وراجع حركات حساباتك البنكية والمحافظ.", "If you do not know this app well, uninstall it and check your bank and wallet transactions."),
                 evidence = listOf("${L.t("التطبيق", "التطبيق", "App")}: ${name(a.pkg)}", "${L.t("تاريخ التثبيت", "اتسطّب", "Installed")}: ${date(a.pkg)}") +
                     sms.map { "${L.t("إذن", "إذن", "Permission")}: ${short(it)}" } + pw.map { "${L.t("صلاحية", "صلاحية", "Access")}: $it" },

@@ -73,7 +73,11 @@ object Studio {
                         // a blank pattern would match every app; fall back to the brand's own name
                         val match = b.optString("match").ifBlank { Regex.escape(name) }
                         if (name.isBlank() || pk.length() == 0) null
-                        else EgApps.Brand(name, b.optString("nameAr"), (0 until pk.length()).map { pk.optString(it) }.toSet(), Regex(match, RegexOption.IGNORE_CASE))
+                        else {
+                            val pn = b.optJSONArray("pins") ?: JSONArray()
+                            val pins = (0 until pn.length()).map { pn.optString(it).replace(":", "").uppercase() }.filter { it.matches(Regex("^[0-9A-F]{40}$")) }.toSet()
+                            EgApps.Brand(name, b.optString("nameAr"), (0 until pk.length()).map { pk.optString(it) }.toSet(), Regex(match, RegexOption.IGNORE_CASE), pins)
+                        }
                     }
                 }.ifEmpty { null }
             } catch (e: Exception) { brands = null }

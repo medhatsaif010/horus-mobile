@@ -144,6 +144,8 @@ data class DeviceData(
     val prev: Snapshot?,
     val deep: DeepData?,
     val root: RootData? = null,
+    /** The default SMS app's package; it receives every OTP first. */
+    val defaultSms: String? = null,
 )
 
 data class Signal(val level: String, val text: String)

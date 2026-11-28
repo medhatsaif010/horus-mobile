@@ -79,6 +79,7 @@ object App {
     var repairChanges: List<RepairCheck.Change>? by mutableStateOf(null)
     // bank apps screen: a quick read of the phone, no full scan needed
     var bankApps: List<EgApps.Found>? by mutableStateOf(null)
+    var bankWatchers: List<EgApps.Watcher> by mutableStateOf(emptyList())
     // scam reports
     var reportsVersion by mutableIntStateOf(0)
     var reportMsg by mutableStateOf("")
@@ -183,6 +184,7 @@ object App {
         scope.launch {
             val d = withContext(Dispatchers.IO) { Collector.collect(ctx, false) { } }
             bankApps = withContext(Dispatchers.Default) { EgApps.found(d) }
+            bankWatchers = withContext(Dispatchers.Default) { EgApps.watchers(d) }
         }
     }
 
