@@ -22,7 +22,12 @@ import org.json.JSONObject
  * shows a different certificate, it was replaced by a copy that is not the official one.
  */
 object EgApps {
-    data class Brand(val name: String, val nameAr: String, val packages: Set<String>, val rx: Regex)
+    /**
+     * [pins]: SHA-1 of the official signing certificate(s), uppercase hex. When known (set in Horus Studio),
+     * an official package with any other certificate is a fake even if it came from a store, and even if
+     * it was the first copy this phone ever saw.
+     */
+    data class Brand(val name: String, val nameAr: String, val packages: Set<String>, val rx: Regex, val pins: Set<String> = emptySet())
 
     private fun rx(s: String) = Regex(s, RegexOption.IGNORE_CASE)
 
@@ -51,8 +56,63 @@ object EgApps {
     /** The brand an app's name or package imitates, if any (and it is not that brand's own package). */
     fun imitates(a: AppInfo): Brand? {
         if (officialPkgs.containsKey(a.pkg)) return null
-        return brands.firstOrNull { it.rx.containsMatchIn(a.label) || it.rx.containsMatchIn(a.pkg) }
+        return imitatesName(a.label, a.pkg)
     }
+
+    // ------------------------------------------------------------------ look-alike names
+    // Fakes rarely use the exact name. They swap letters that look the same (I/l, 0/o, Cyrillic а),
+    // add or drop one letter (Vodafone Kash, Instapey), or write the Arabic name with other alef or ya forms.
+    private val arForms = mapOf('أ' to 'ا', 'إ' to 'ا', 'آ' to 'ا', 'ٱ' to 'ا', 'ة' to 'ه', 'ى' to 'ي', 'ؤ' to 'و', 'ئ' to 'ي',
+        'چ' to 'ج', 'گ' to 'ك', 'ڤ' to 'ف', 'پ' to 'ب')
+
+    /** Lowercase, look-alike letters folded, Arabic letter forms unified, only letters kept. */
+    fun norm(s: String): String = UrlCheck.skeleton(s).map { arForms[it] ?: it }
+        .filter { it.isLetter() && it !in '\u064B'..'\u065F' && it != '\u0640' }.joinToString("")
+
+    /** Names too generic to match on their own (e& money becomes "emoney"). */
+    private val generic = setOf("emoney", "wallet", "mobile", "banking")
+    private fun keys(b: Brand) = listOf(b.name, b.nameAr).map { norm(it) }.filter { it.length >= 5 && it !in generic }.distinct()
+
+    /** True when [label] contains [key] spelled with at most one change (two for long names). */
+    internal fun near(label: String, key: String): Boolean {
+        if (label.contains(key)) return true
+        if (key.length < 6) return false
+        val max = if (key.length >= 10) 2 else 1
+        for (len in key.length - 1..key.length + 1) {
+            if (len > label.length) continue
+            for (i in 0..label.length - len) if (UrlCheck.distance(label.substring(i, i + len), key) <= max) return true
+        }
+        return false
+    }
+
+    /** The brand that a name or package imitates: the brand's pattern, or its name spelled almost the same. */
+    fun imitatesName(label: String, pkg: String = ""): Brand? {
+        brands.firstOrNull { it.rx.containsMatchIn(label) || (pkg.isNotEmpty() && it.rx.containsMatchIn(pkg)) }?.let { return it }
+        val n = norm(label)
+        if (n.length < 4) return null
+        return brands.firstOrNull { b -> keys(b).any { near(n, it) } }
+    }
+
+    // ------------------------------------------------------------------ official signatures
+    /** The certificates an official package must carry: pins set in Horus Studio, else the one learnt on this phone. */
+    fun expected(pkg: String, learnt: Map<String, Set<String>> = pins()): Set<String>? =
+        brandOf(pkg)?.pins?.takeIf { it.isNotEmpty() } ?: learnt[pkg]
+
+    /** True when the app's certificate is not one of [expected]; false when it matches or nothing is known yet. */
+    fun certMismatch(expected: Set<String>?, certs: List<String>): Boolean =
+        !expected.isNullOrEmpty() && certs.isNotEmpty() && certs.none { it.uppercase() in expected }
+
+    /** Apps that can watch or control what happens inside a bank app: they read the screen, the notifications or draw on top. */
+    data class Watcher(val app: AppInfo, val powers: List<String>, val outside: Boolean)
+    fun watchers(d: DeviceData): List<Watcher> = d.apps.filter { !it.system && it.pkg != d.selfPkg }.mapNotNull { a ->
+        val p = buildList {
+            if (a.pkg in d.accessibility) add(L.t("يقرأ الشاشة ويتحكم فيها (Accessibility)", "بيقرا الشاشة ويتحكم فيها (Accessibility)", "Reads and controls the screen (Accessibility)"))
+            if (a.pkg in d.notifListeners) add(L.t("يقرأ الإشعارات ورموز OTP", "بيقرا الإشعارات وأكواد OTP", "Reads notifications and OTP codes"))
+            if (a.overlay) add(L.t("يظهر فوق التطبيقات", "بيظهر فوق التطبيقات", "Draws over other apps"))
+            if (a.pkg in d.admins) add(L.t("مسؤول جهاز", "Device admin", "Device admin"))
+        }
+        if (p.isEmpty()) null else Watcher(a, p, Analyzer.isSideloaded(a, d.selfPkg))
+    }.sortedWith(compareByDescending<Watcher> { it.outside }.thenByDescending { it.powers.size })
 
     val whatsappOfficial = setOf("com.whatsapp", "com.whatsapp.w4b")
     /** Modified WhatsApp builds. They ask for your WhatsApp account and are a common way to plant spyware. */
@@ -92,9 +152,8 @@ object EgApps {
         val p = pins()
         return d.apps.filter { !it.system && (brandOf(it.pkg) != null || it.pkg in whatsappOfficial) }.map { a ->
             val name = brandOf(a.pkg)?.let { L.t(it.nameAr, it.nameAr, it.name) } ?: "WhatsApp"
-            val pin = p[a.pkg]
             val st = when {
-                pin != null && a.certSha1.isNotEmpty() && a.certSha1.none { it.uppercase() in pin } -> Status.SIG_CHANGED
+                certMismatch(expected(a.pkg, p), a.certSha1) -> Status.SIG_CHANGED
                 Analyzer.isSideloaded(a, d.selfPkg) -> Status.OUTSIDE
                 else -> Status.STORE
             }

@@ -173,6 +173,7 @@ object Collector {
             prev = loadSnapshot(),
             deep = if (deep) DeepScan.collect(ctx, apps, { a -> Analyzer.isSideloaded(a, ctx.packageName) }, progress) else null,
             root = if (deep && RootScan.enabled()) { progress(8); RootScan.collect(ctx) } else null,
+            defaultSms = try { android.provider.Telephony.Sms.getDefaultSmsPackage(ctx) } catch (e: Exception) { null },
         )
     }
 

@@ -129,11 +129,35 @@ fun BankAppsScreen() {
                 }
             }
         }
-        Text(L.t("يتعرّف أيضًا على التطبيقات المزيفة التي تحمل أسماء هذه البنوك بالعربي أو بالإنجليزي. وتظهر نتيجتها في الفحص.", "وكمان بيكشف التطبيقات المزيفة اللي شايلة أسماء البنوك دي بالعربي أو بالإنجليزي، ونتيجتها بتظهر في الفحص.",
-            "It also spots fake apps that carry these banks' names in Arabic or English. Those show up in the scan."), color = C.Muted, fontSize = 13.sp)
+        val watchers = App.bankWatchers
+        if (list != null) {
+            SectionTitle(L.t("تطبيقات تستطيع مراقبة تطبيق البنك", "تطبيقات تقدر تراقب تطبيق البنك", "Apps that can watch your bank app"))
+            if (watchers.isEmpty()) Panel {
+                Text(L.t("لا يوجد تطبيق يستطيع قراءة الشاشة أو الإشعارات أو الظهور فوق تطبيق البنك.", "مفيش تطبيق يقدر يقرا الشاشة أو الإشعارات أو يظهر فوق تطبيق البنك.", "No app can read the screen or notifications, or draw over your bank app."), color = C.Safe, fontSize = 14.sp)
+            } else {
+                Text(L.t("هذه التطبيقات تستطيع رؤية ما يحدث داخل تطبيق البنك أو قراءة رموز OTP. هذا طبيعي لبعض التطبيقات المعروفة، لكن أي تطبيق لا تعرفه هنا خطر على حسابك.",
+                    "التطبيقات دي تقدر تشوف اللي بيحصل جوه تطبيق البنك أو تقرا أكواد OTP. ده طبيعي لبعض التطبيقات المعروفة، بس أي تطبيق مش عارفه هنا خطر على حسابك.",
+                    "These apps can see what happens inside your bank app or read OTP codes. That is normal for some well-known apps, but any app here that you do not know is a risk to your account."), color = C.Text2, fontSize = 13.sp)
+                HCard(Modifier.fillMaxWidth(), padding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)) {
+                    watchers.forEachIndexed { i, w ->
+                        val col = if (w.outside) C.Danger else C.Warn
+                        val src = if (w.outside) L.t("من خارج المتجر · ", "من برّه المتجر · ", "Outside a store · ") else ""
+                        ListRow(w.app.label, src + w.powers.joinToString(" · "), subColor = col, last = i == watchers.lastIndex,
+                            onClick = { Actions.open(ctx, Fix.APP_SETTINGS, w.app.pkg) }) { Dot(col) }
+                    }
+                }
+            }
+        }
+        Text(L.t("يتعرّف أيضًا على التطبيقات المزيفة التي تحمل أسماء هذه البنوك بالعربي أو بالإنجليزي، حتى لو كُتب الاسم بحروف متشابهة أو بخطأ إملائي. وتظهر نتيجتها في الفحص.", "وكمان بيكشف التطبيقات المزيفة اللي شايلة أسماء البنوك دي بالعربي أو بالإنجليزي، حتى لو الاسم مكتوب بحروف شبهها أو بغلطة. ونتيجتها بتظهر في الفحص.",
+            "It also spots fake apps that carry these banks' names in Arabic or English, even when the name uses look-alike letters or a typo. Those show up in the scan."), color = C.Muted, fontSize = 13.sp)
         Primary(L.t("فحص الجهاز", "افحص الجهاز", "Scan the phone"), { App.startScan(deep = true) })
         SectionTitle(L.t("التطبيقات التي يعرفها", "التطبيقات اللي يعرفها", "Apps it knows"))
         Text(EgApps.brands.joinToString(" · ") { L.t(it.nameAr, it.nameAr, it.name) } + " · WhatsApp", color = C.Muted, fontSize = 13.sp)
+        val stored = list.orEmpty().filter { it.status == EgApps.Status.STORE && it.app.certSha1.isNotEmpty() }
+        if (stored.isNotEmpty()) {
+            SectionTitle(L.t("بصمات التوقيع (للمراجعة)", "بصمات التوقيع (للمراجعة)", "Signing fingerprints (for review)"))
+            stored.forEach { f -> Text("${f.app.pkg}\nSHA-1 ${f.app.certSha1.first()}", color = C.Dim, fontSize = 11.sp, style = Ltr) }
+        }
     }
 }
 
