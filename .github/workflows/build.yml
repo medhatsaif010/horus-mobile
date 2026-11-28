@@ -186,11 +186,11 @@ jobs:
           # Replace the files in place: the download link must never point to a missing file, even for a moment.
           if gh release view apk -R "$RELEASES_REPO" >/dev/null 2>&1; then
             gh release upload apk -R "$RELEASES_REPO" HorusShield.apk HorusShield.apk.sha256 version.json --clobber
-            gh release edit apk -R "$RELEASES_REPO" --title "Horus Shield 1.0.${{ github.run_number }}" --notes-file release-notes-en.txt --prerelease
+            gh release edit apk -R "$RELEASES_REPO" --title "Horus Shield 1.0.${{ github.run_number }}" --notes-file release-notes.txt --prerelease
           else
             gh release create apk -R "$RELEASES_REPO" HorusShield.apk HorusShield.apk.sha256 version.json --prerelease \
               --title "Horus Shield 1.0.${{ github.run_number }}" \
-              --notes-file release-notes-en.txt
+              --notes-file release-notes.txt
           fi
           # Fail the build if the public download is not there afterwards
           gh release view apk -R "$RELEASES_REPO" --json assets -q '.assets[].name' | grep -qx HorusShield.apk
