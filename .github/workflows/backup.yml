@@ -78,9 +78,9 @@ jobs:
           [ -n "$SET_ON" ] || { echo "ONEDRIVE_TOKEN_DATE not set; no reminder"; exit 0; }
           days=$(( ( $(date -u +%s) - $(date -u -d "$SET_ON" +%s) ) / 86400 ))
           echo "OneDrive sign-in is $days days old"
-          if [ "$days" -ge 75 ] && [ -z "$(gh issue list -R "$GITHUB_REPOSITORY" --search "جدد تصريح OneDrive in:title" --state open --json number --jq '.[0].number')" ]; then
-            gh issue create -R "$GITHUB_REPOSITORY" --assignee medhatsaif010 --title "جدد تصريح OneDrive للباك أب" \
-              --body "تصريح OneDrive بقاله $days يوم، وممكن يقف قريب. شغّل على جهازك: rclone config reconnect od:، وحط محتوى ملف rclone.conf الناتج مكان RCLONE_CONF، وغيّر المتغير ONEDRIVE_TOKEN_DATE لتاريخ النهارده." || true
+          if [ "$days" -ge 75 ] && [ -z "$(gh issue list -R "$GITHUB_REPOSITORY" --search "Renew OneDrive access in:title" --state open --json number --jq '.[0].number')" ]; then
+            gh issue create -R "$GITHUB_REPOSITORY" --assignee medhatsaif010 --title "Renew OneDrive access for backups" \
+              --body "The OneDrive authorization is $days days old and may stop soon. On your computer run: rclone config reconnect od: then put the new rclone.conf content into the RCLONE_CONF secret, and set the ONEDRIVE_TOKEN_DATE variable to today's date." || true
           fi
       - name: Collect
         env:
