@@ -161,4 +161,6 @@ data class UrlResult(
     val reach: String = "",
     val verdict: String = "",
     val signals: List<Signal> = emptyList(),
+    /** The page itself was read (text only) to see what it asks for. */
+    val pageRead: Boolean = false,
 )

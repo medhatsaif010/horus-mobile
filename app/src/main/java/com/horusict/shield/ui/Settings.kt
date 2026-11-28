@@ -94,7 +94,7 @@ fun SettingsScreen() = TabScreen(Tab.SETTINGS) {
                 Why(
                     L.t("يتم الفحص على الهاتف، ولا تُرسل بياناتك إلى أي خادم.", "الفحص بيتم على الموبايل، ومش بيبعت بياناتك لأي سيرفر.", "Scans run on the phone and send none of your data to any server."),
                     L.t("لا يحذف Horus Shield أي شيء ولا يغيّره من تلقاء نفسه، ولا يقرأ رسائلك ولا صورك. ما يخرج من الهاتف: تنزيل قاعدة التهديدات والتحديثات، وعند فحص رابط نطلب عنوان الصفحة فقط ونستعلم من rdap.org عن عمر النطاق.", "Horus Shield مش بيمسح ولا بيغيّر حاجة لوحده، ومش بيقرا رسايلك ولا صورك. اللي بيخرج من الموبايل: تنزيل قاعدة التهديدات والتحديثات، ولما تفحص لينك بنطلب عنوان الصفحة بس ونسأل rdap.org عن عمر الدومين.",
-                        "Horus Shield never removes or changes anything on its own and never reads your messages or photos. What leaves the phone: the threat intel and app updates, and when you check a link, a header-only request and a domain-age lookup at rdap.org."),
+                        "Horus Shield never removes or changes anything on its own and never reads your messages or photos. What leaves the phone: the threat intel and app updates, and when you check a link, requests that read the page text without running it and a domain-age lookup at rdap.org."),
                 )
             }
 

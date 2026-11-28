@@ -658,8 +658,8 @@ fun LinkScreen() {
     Backdrop {
         TopBar(L.t("فحص الروابط", "فحص اللينكات", "Link check"), { App.screen = App.back })
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(L.t("الصق الرابط الذي وصلك. لا يفتح Horus Shield الصفحة، بل يتحقق من وجهتها ومالكها وعمرها.", "الزق اللينك اللي جالك. Horus Shield مش بيفتح الصفحة: بيشوف رايحة فين، ومين صاحبها، وعمرها قد إيه.",
-                "Paste the link you received. Horus Shield does not open the page: it checks where it leads, who it pretends to be, and how old it is."), color = C.Text2, fontSize = 14.sp)
+            Text(L.t("الصق الرابط الذي وصلك. لا يشغّل Horus Shield الصفحة، بل يتحقق من وجهتها وعمرها ومن تدّعي أنها، ويقرأ نصها ليعرف هل تطلب كلمة مرور أو بطاقة أو رمزًا.", "الزق اللينك اللي جالك. Horus Shield مش بيشغّل الصفحة: بيشوف رايحة فين، وعمرها قد إيه، وبتدّعي إنها مين، وبيقرا نصها علشان يعرف طالبة باسورد ولا كارت ولا كود.",
+                "Paste the link you received. Horus Shield does not run the page: it checks where it leads, how old it is and who it claims to be, and reads its text to see whether it asks for a password, a card or a code."), color = C.Text2, fontSize = 14.sp)
             if (App.linkTapped) {
                 val la = App.linkLookAlike
                 if (la != null) HCard(Modifier.fillMaxWidth(), border = C.Danger.copy(alpha = 0.7f)) {
@@ -673,14 +673,9 @@ fun LinkScreen() {
                         "اللينك اللي دوست عليه مش موقع «${la.brand}» الرسمي (${la.official})، ده متكتب علشان يتشبّه بيه. متكتبش فيه باسورد ولا كود ولا بيانات كارت. لو محتاج البنك أو المحفظة افتح التطبيق الرسمي أو اكتب ${la.official} بإيدك.",
                         "The link you tapped is not the official «${la.brand}» site (${la.official}); it is spelled to look like it. Do not type a password, a code or card details into it. If you need your bank or wallet, open the official app or type ${la.official} yourself."), color = C.Text2, fontSize = 13.sp)
                     ActionText(L.t("افتحه في المتصفح على أي حال", "افتحه في المتصفح برضه", "Open it in the browser anyway"), color = C.Muted) { noBrowser = !openInBrowser(ctx, App.linkText) }
-                } else HCard(Modifier.fillMaxWidth(), border = C.Safe.copy(alpha = 0.6f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Ico(R.drawable.ic_shield_check, C.Safe, 32.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Text(L.t("لا يشبه موقع بنك أو محفظة", "مش شبه موقع بنك أو محفظة", "Not posing as a bank or wallet"), color = C.Safe, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                    }
-                    Text(L.t("فحص Horus Shield الرابط الذي ضغطت عليه على هاتفك دون إرسال شيء. للفحص الأعمق (التحويلات وعمر النطاق) اضغط «افحص الرابط».", "Horus Shield شيّك على اللينك اللي دوست عليه على موبايلك من غير ما يبعت حاجة. للفحص الأعمق (التحويلات وعمر الدومين) دوس «افحص اللينك».",
-                        "Horus Shield checked the link you tapped on your phone, sending nothing. For a deeper check (redirects and domain age) tap Check link."), color = C.Text2, fontSize = 13.sp)
+                } else HCard(Modifier.fillMaxWidth(), border = C.Line) {
+                    Text(L.t("لا يشبه موقع بنك أو محفظة. ويجري الآن الفحص الكامل: القوائم، والتحويلات، وعمر النطاق، وما تطلبه الصفحة.", "مش شبه موقع بنك أو محفظة. والفحص الكامل شغال دلوقتي: القوايم، والتحويلات، وعمر الدومين، والصفحة طالبة إيه.",
+                        "Not posing as a bank or wallet. The full check is running now: lists, redirects, domain age, and what the page asks for."), color = C.Text2, fontSize = 13.sp)
                     Secondary(L.t("افتحه في المتصفح", "افتحه في المتصفح", "Open in the browser"), { noBrowser = !openInBrowser(ctx, App.linkText) })
                 }
                 if (noBrowser) Text(L.t("لا يوجد متصفح آخر على الهاتف لفتح الرابط.", "مفيش متصفح تاني على الموبايل يفتح اللينك.", "There is no other browser on the phone to open the link."), color = C.Warn, fontSize = 13.sp)
@@ -701,13 +696,13 @@ fun LinkScreen() {
             if (r != null && !App.linkBusy) {
                 if (!r.ok) Text(L.t("هذا ليس رابطًا صحيحًا. الصق الرابط كاملًا كما وصلك.", "ده مش لينك صحيح. الزق اللينك كامل زي ما جالك.", "That is not a valid link. Paste the whole link as you received it."), color = C.Danger, fontSize = 14.sp)
                 else {
-                    val vc = when (r.verdict) { "danger" -> C.Danger; "suspicious" -> C.Warn; else -> C.Safe }
+                    val vc = when (r.verdict) { "danger" -> C.Danger; "suspicious" -> C.Warn; "trusted" -> C.Safe; else -> C.GoldLight }
                     HCard(Modifier.fillMaxWidth(), border = vc.copy(alpha = 0.7f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Ico(if (r.verdict == "nosigns") R.drawable.ic_shield_check else R.drawable.ic_warning, vc, 40.dp)
+                            Ico(if (r.verdict == "trusted") R.drawable.ic_shield_check else R.drawable.ic_warning, vc, 40.dp)
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(when (r.verdict) { "danger" -> L.t("خطر: لا تفتح هذا الرابط", "خطر: متفتحش اللينك ده", "Danger: do not open this link"); "suspicious" -> L.t("مشبوه: لا تُدخل فيه أي بيانات", "مشبوه: متكتبش فيه أي بيانات", "Suspicious: type nothing into it"); else -> L.t("لا توجد علامات خطر معروفة", "مفيش علامات خطر معروفة", "No known danger signs") },
+                                Text(when (r.verdict) { "danger" -> L.t("خطر: لا تفتح هذا الرابط", "خطر: متفتحش اللينك ده", "Danger: do not open this link"); "suspicious" -> L.t("مشبوه: لا تُدخل فيه أي بيانات", "مشبوه: متكتبش فيه أي بيانات", "Suspicious: type nothing into it"); "trusted" -> L.t("موقع معروف", "موقع معروف", "A well-known site"); else -> L.t("موقع غير معروف: لا نستطيع ضمانه", "موقع مش معروف: مش هنقدر نضمنه", "Unknown site: we cannot vouch for it") },
                                     color = vc, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
                                 r.ageDays?.let { Text(L.t("النطاق ", "الدومين ", "Domain ") + ageText(it), color = C.Muted, fontSize = 13.sp) }
                             }
@@ -716,8 +711,12 @@ fun LinkScreen() {
                         var meta = L.t("النطاق الفعلي: ", "الدومين الفعلي: ", "Actual domain: ") + r.domain
                         if (r.chain.size > 1) meta += "  ·  " + L.t("${r.chain.size - 1} تحويل", "${r.chain.size - 1} تحويل", "${r.chain.size - 1} redirects")
                         Text(meta, color = C.Muted, fontSize = 12.sp)
-                        if (r.verdict == "nosigns") Text(L.t("هذا ليس ضمانًا لأمانه، فصفحات الاحتيال الجديدة تستغرق وقتًا حتى تُسجَّل. إن طلب الرابط كلمة مرور أو بيانات بطاقة، فادخل إلى الموقع من عنوانه الذي تعرفه لا من الرابط.", "ده مش ضمان إنه آمن: صفحات النصب الجديدة بتاخد وقت لحد ما تتسجل. لو اللينك طالب باسورد أو بيانات كارت، ادخل الموقع من عنوانه اللي تعرفه مش من اللينك.",
-                            "This is not a guarantee: new scam pages take time to be listed. If the link asks for a password or card details, go to the site by the address you know, not through the link."), color = C.Text2, fontSize = 13.sp)
+                        if (r.verdict == "trusted") Text(L.t("موقع رسمي أو من أشهر المواقع، وعمره أكثر من سنة، ولا توجد عليه علامات خطر. ومع ذلك تأكد من أن العنوان هو الذي تقصده.", "موقع رسمي أو من أشهر المواقع، وعمره أكتر من سنة، ومفيش عليه علامات خطر. برضه اتأكد إن العنوان هو اللي إنت قاصده.",
+                            "An official or very popular site, over a year old, with no danger signs. Still check that the address is the one you mean."), color = C.Text2, fontSize = 13.sp)
+                        if (r.verdict == "unknown") Text(L.t("لم نجد عليه علامات احتيال، لكنه ليس موقعًا معروفًا لنا، وصفحات الاحتيال الجديدة لا تظهر في أي قائمة في أيامها الأولى. لا تكتب فيه كلمة مرور ولا رمز تحقق ولا بيانات بطاقة إلا إن كنت متأكدًا أنه موقع الجهة نفسها، والأفضل أن تدخل إليها من تطبيقها الرسمي.",
+                            "ملقيناش عليه علامات نصب، بس هو مش موقع معروف لينا، وصفحات النصب الجديدة مش بتبقى في أي قايمة في أول أيامها. متكتبش فيه باسورد ولا كود ولا بيانات كارت غير لو متأكد إنه موقع الجهة نفسها، والأحسن تدخل من التطبيق الرسمي بتاعها.",
+                            "We found no scam signs, but it is not a site we know, and new scam pages are on no list in their first days. Do not type a password, a code or card details unless you are sure it is that organisation's own site; better, use its official app."), color = C.Text2, fontSize = 13.sp)
+                        if (r.pageRead) Text(L.t("قرأ Horus Shield نص الصفحة دون تشغيلها ليعرف ما تطلبه منك.", "Horus Shield قرا نص الصفحة من غير ما يشغّلها علشان يعرف هي طالبة منك إيه.", "Horus Shield read the page's text, without running it, to see what it asks you for."), color = C.Muted, fontSize = 12.sp)
                     }
                     if (r.signals.isNotEmpty()) {
                         SectionTitle(L.t("السبب", "ليه", "Why"))
