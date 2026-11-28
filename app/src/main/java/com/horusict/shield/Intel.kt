@@ -59,6 +59,8 @@ class IntelData(
     val malwareHashes: Set<String> = emptySet(),
     /** Active phishing domains (Phishing.Database). */
     val phishing: Bloom? = null,
+    /** The most visited domains (Tranco top 100,000). Only used to call a site "well known". */
+    val popular: Bloom? = null,
     /** Scam links and numbers reported by users and confirmed by the Horus team. */
     val communityDomains: Set<String> = emptySet(),
     val communityPhones: Set<String> = emptySet(),
@@ -149,7 +151,7 @@ object Intel {
             c.optJSONArray("domains")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.optString("d")?.lowercase()?.takeIf { it.contains('.') }?.let { cd.add(it) } }
             c.optJSONArray("phones")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.optString("p")?.takeIf { it.isNotEmpty() }?.let { cp.add(it) } }
         }
-        return IntelData(o.optString("generatedAt", ""), source, st, doms, ips, fin, kev, urls, hashes, Bloom.from(o.optJSONObject("phishing")), cd, cp)
+        return IntelData(o.optString("generatedAt", ""), source, st, doms, ips, fin, kev, urls, hashes, Bloom.from(o.optJSONObject("phishing")), Bloom.from(o.optJSONObject("popular")), cd, cp)
     }
 
     /** Full signed pack -> the small subset the phone needs. */
@@ -171,6 +173,7 @@ object Intel {
         o.put("malware_urls", full.optJSONObject("malware")?.optJSONArray("urls") ?: JSONArray())
         o.put("malware_sha256", full.optJSONObject("malware")?.optJSONArray("sha256") ?: JSONArray())
         full.optJSONObject("phishing")?.let { o.put("phishing", it) }
+        full.optJSONObject("popular")?.let { o.put("popular", it) }
         full.optJSONObject("community")?.let { o.put("community", it) }
         return o
     }

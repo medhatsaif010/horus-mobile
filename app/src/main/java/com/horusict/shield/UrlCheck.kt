@@ -52,6 +52,42 @@ object UrlCheck {
     )
     private val shorteners = listOf("bit.ly", "tinyurl.com", "t.co", "cutt.ly", "is.gd", "rb.gy", "shorturl.at", "goo.su", "ow.ly", "buff.ly", "t.ly", "tiny.cc", "rebrand.ly", "s.id", "v.gd", "lnkd.in", "goo.gl", "linktr.ee", "clck.ru", "surl.li", "urlz.fr")
     private val freeHosts = listOf("web.app", "firebaseapp.com", "pages.dev", "workers.dev", "github.io", "netlify.app", "vercel.app", "blogspot.com", "weebly.com", "wixsite.com", "000webhostapp.com", "glitch.me", "r2.dev", "ngrok-free.app", "ngrok.io", "duckdns.org", "trycloudflare.com", "herokuapp.com", "repl.co", "replit.app", "godaddysites.com", "webflow.io", "square.site", "sites.google.com", "forms.gle", "my.canva.site")
+    /** Sites people in Egypt use every day; used with the Tranco list to call a site "well known". */
+    private val wellKnown = listOf("google.com", "google.com.eg", "youtube.com", "facebook.com", "instagram.com", "whatsapp.com", "wikipedia.org",
+        "microsoft.com", "live.com", "office.com", "apple.com", "amazon.com", "amazon.eg", "x.com", "twitter.com", "linkedin.com", "tiktok.com",
+        "telegram.org", "netflix.com", "github.com", "gov.eg", "edu.eg", "youm7.com", "masrawy.com", "ahram.org.eg", "almasryalyoum.com",
+        "jumia.com.eg", "noon.com", "talabat.com", "uber.com", "careem.com", "shahid.mbc.net", "anghami.com", "olx.com.eg", "dubizzle.com.eg")
+
+    /**
+     * How each brand names itself inside a page. Used only together with a password, card or code field:
+     * a page that says it is your bank and asks for your PIN, on a domain that is not the bank's, is a fake.
+     */
+    private val pageNames = mapOf(
+        "البنك الأهلي المصري / NBE" to "البنك ال[أا]هلي|national bank of egypt|\\bnbe\\b|al ?ahly",
+        "بنك مصر / Banque Misr" to "بنك مصر|banque ?misr",
+        "CIB" to "التجاري الدولي|commercial international bank|\\bcib\\b",
+        "QNB" to "\\bqnb\\b",
+        "AAIB" to "\\baaib\\b|العربي ال[أا]فريقي",
+        "بنك القاهرة / Banque du Caire" to "بنك القاهرة|banque du caire",
+        "AlexBank" to "alexbank|alex bank|بنك ال[إا]سكندرية",
+        "InstaPay" to "instapay|insta pay|[إا]نستا ?باي",
+        "Vodafone" to "vodafone cash|فودافون كاش",
+        "Orange" to "orange cash|orange money|[أا]ورن[جچ] ?كاش",
+        "e& / Etisalat" to "etisalat cash|e& money|اتصالات كاش",
+        "WE / Telecom Egypt" to "\\bwe pay\\b|وي باي",
+        "Fawry" to "fawry|ماي فوري|فوري باي",
+        "valU" to "\\bvalu\\b|فاليو",
+        "البريد المصري / Egypt Post" to "egypt post|البريد المصري",
+        "Meeza" to "meeza|بطاقة ميزة|كارت ميزة",
+        "PayPal" to "paypal",
+        "Facebook" to "facebook|فيسبوك|فيس بوك",
+        "WhatsApp" to "whatsapp|واتساب|واتس ?[اآ]ب",
+        "Microsoft" to "microsoft|outlook|office 365",
+        "Apple" to "apple id|icloud",
+        "Netflix" to "netflix",
+        "DHL / Aramex / Bosta" to "\\bdhl\\b|aramex|\\bbosta\\b|[أا]رامكس|بوسطة",
+    ).mapValues { Regex(it.value, RegexOption.IGNORE_CASE) }
+
     /** Official bank and wallet domains: never reported as phishing, whatever a list says. */
     private val officialDomains: List<String> by lazy { brands.flatMap { it.ok } }
     private val sharedHosts = listOf("github.com", "raw.githubusercontent.com", "githubusercontent.com", "drive.google.com", "docs.google.com", "googleusercontent.com", "dropbox.com", "dropboxusercontent.com", "discord.com", "discordapp.com", "mediafire.com", "onedrive.live.com", "1drv.ms", "mega.nz", "gitlab.com", "bitbucket.org", "pastebin.com", "archive.org", "t.me", "amazonaws.com", "blob.core.windows.net", "sharepoint.com")
@@ -185,6 +221,44 @@ object UrlCheck {
         code to loc
     } catch (e: Exception) { null }
 
+    /**
+     * The page's HTML, read as text only: no scripts run, no cookies are kept or sent, at most 300 KB.
+     * Used to see whether the page asks for a password, card details or a code, and whose name it shows.
+     */
+    private fun fetchPage(u: URL): String? = try {
+        val c = u.openConnection() as HttpURLConnection
+        c.instanceFollowRedirects = false
+        c.connectTimeout = 7000; c.readTimeout = 8000
+        c.useCaches = false
+        c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36")
+        c.setRequestProperty("Accept", "text/html")
+        try {
+            if (c.responseCode !in 200..299 || c.contentType?.contains("html", ignoreCase = true) != true) null
+            else c.inputStream.use { s ->
+                val buf = java.io.ByteArrayOutputStream(); val b = ByteArray(16384); var n = 0
+                while (n < 300_000) { val r = s.read(b); if (r < 0) break; buf.write(b, 0, r); n += r }
+                buf.toString("UTF-8")
+            }
+        } finally { c.disconnect() }
+    } catch (e: Exception) { null }
+
+    /** What a page asks for: "password", "card", "code". */
+    internal data class PageAsk(val password: Boolean, val card: Boolean, val code: Boolean, val brand: String?, val brandOk: List<String>)
+    internal fun readPage(html: String): PageAsk {
+        val low = html.lowercase()
+        val text = low.replace(Regex("<script.*?</script>|<style.*?</style>", RegexOption.DOT_MATCHES_ALL), " ").replace(Regex("<[^>]+>"), " ").replace(Regex("\\s+"), " ")
+        val inputs = Regex("<input[^>]*>").findAll(low).map { it.value }.toList()
+        val hasForm = inputs.isNotEmpty() || low.contains("<form")
+        val pw = inputs.any { Regex("type\\s*=\\s*[\"']?password").containsMatchIn(it) }
+        val card = inputs.any { Regex("cc-number|cardnumber|card_number|card-number|cc-csc|\\bcvv|\\bcvc|cc-exp|expiry|exp-date|expdate").containsMatchIn(it) } ||
+            (hasForm && Regex("رقم البطاقة|رقم الكارت|card number|cvv|cvc|تاريخ ال[إا]نتهاء").containsMatchIn(text))
+        val code = inputs.any { Regex("one-time-code|\\botp|smscode|sms_code|verification.?code|verify.?code|\\bpin\\b").containsMatchIn(it) } ||
+            (hasForm && Regex("رمز التحقق|كود التحقق|كود التفعيل|رمز التفعيل|الكود المرسل|الرقم السري|one.?time password|verification code|\\botp\\b").containsMatchIn(text))
+        val head = (Regex("<title[^>]*>(.*?)</title>", RegexOption.DOT_MATCHES_ALL).find(low)?.groupValues?.get(1) ?: "") + " " + text.take(20000)
+        val b = brands.firstOrNull { br -> pageNames[br.n]?.containsMatchIn(head) == true }
+        return PageAsk(pw, card, code, b?.n, b?.ok ?: emptyList())
+    }
+
     private fun domainAge(domain: String): Int? = try {
         val c = URL("https://rdap.org/domain/$domain").openConnection() as HttpURLConnection
         c.connectTimeout = 8000; c.readTimeout = 8000
@@ -311,15 +385,43 @@ object UrlCheck {
             }
         }
 
+        val official = !fIp && under(fh, officialDomains)
+        val popular = !fIp && (under(freg, wellKnown) || intel.popular?.has(freg) == true)
+        var pageRead = false
+        if (online && reach == "ok" && !fIp && !official) fetchPage(final)?.let { html ->
+            pageRead = true
+            val p = readPage(html)
+            val asks = listOfNotNull(
+                if (p.password) L.t("كلمة مرور", "باسورد", "a password") else null,
+                if (p.card) L.t("بيانات بطاقة", "بيانات كارت", "card details") else null,
+                if (p.code) L.t("رمز تحقق أو رقم سري", "كود أو رقم سري", "a code or PIN") else null,
+            ).joinToString(L.t(" و", " و", " and "))
+            if (p.brand != null && asks.isNotEmpty() && !under(fh, p.brandOk)) {
+                brandHit = true
+                sig("bad", "الصفحة تقدّم نفسها على أنها «${p.brand}» وتطلب $asks، لكنها ليست على الموقع الرسمي (${p.brandOk.firstOrNull() ?: ""}). هذه صفحة سرقة بيانات.",
+                    "الصفحة بتقدّم نفسها إنها «${p.brand}» وبتطلب $asks، بس هي مش على الموقع الرسمي (${p.brandOk.firstOrNull() ?: ""}). دي صفحة سرقة بيانات.",
+                    "The page presents itself as «${p.brand}» and asks for $asks, but it is not on the official site (${p.brandOk.firstOrNull() ?: ""}). This is a page that steals details.")
+            } else {
+                if (p.card && !popular) sig("warn", "تطلب الصفحة بيانات بطاقة على موقع غير معروف. لا تدفع إلا على مواقع تعرفها.", "الصفحة بتطلب بيانات كارت على موقع مش معروف. متدفعش غير على مواقع إنت عارفها.", "The page asks for card details on a site that is not well known. Only pay on sites you know.")
+                if (p.code && !popular) sig("warn", "تطلب الصفحة رمز تحقق أو رقمًا سريًا. لا يطلب أي بنك أو محفظة أو واتساب أن تكتب الكود الذي وصلك في موقع.", "الصفحة بتطلب كود أو رقم سري. مفيش بنك ولا محفظة ولا واتساب بيطلب منك تكتب الكود اللي جالك في موقع.", "The page asks for a code or PIN. No bank, wallet or WhatsApp asks you to type a code you received into a website.")
+                if (p.password && !popular && (age == null || age < 365)) sig("note", "تطلب الصفحة كلمة مرور على موقع غير معروف.", "الصفحة بتطلب باسورد على موقع مش معروف.", "The page asks for a password on a site that is not well known.")
+            }
+        }
+
         val bad = signals.count { it.level == "bad" }
         val warn = signals.count { it.level == "warn" }
         val notes = signals.count { it.level == "note" }
-        var verdict = if (warn > 0) "suspicious" else "nosigns"
-        if (bad > 0 || (brandHit && (warn >= 2 || notes >= 1))) verdict = "danger"
+        // No list knows every scam site, so a site is only called safe when it is official or well known and old.
+        val verdict = when {
+            bad > 0 || (brandHit && (warn >= 2 || notes >= 1)) -> "danger"
+            warn > 0 -> "suspicious"
+            official || (popular && (age == null || age >= 365)) -> "trusted"
+            else -> "unknown"
+        }
         val order = mapOf("bad" to 0, "warn" to 1, "note" to 2)
         return UrlResult(
             ok = true, url = first.toString(), finalUrl = final.toString(), domain = freg, chain = chain, ageDays = age,
-            reach = reach, verdict = verdict, signals = signals.sortedBy { order[it.level] ?: 3 },
+            reach = reach, verdict = verdict, signals = signals.sortedBy { order[it.level] ?: 3 }, pageRead = pageRead,
         )
     }
 }

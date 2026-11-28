@@ -187,6 +187,12 @@ class MainActivity : ComponentActivity() {
                 val bo = listOf(bl?.has("evil.example") == true, bl?.has("phish.test") == true, bl?.has("cib-eg-login.com") == true,
                     bl?.has("good.example") == false, bl?.has("google.com") == false)
                 android.util.Log.i("HorusTest", "intel bloom=${bo.count { it }}/${bo.size}")
+                val p1 = UrlCheck.readPage("<html><title>البنك الأهلي المصري - تسجيل الدخول</title><form><input name=u><input type=\"password\" name=p></form></html>")
+                val p2 = UrlCheck.readPage("<html><title>Card</title><form><input autocomplete=cc-number name=n><input name=cvv></form></html>")
+                val p3 = UrlCheck.readPage("<html><title>أخبار اليوم</title><p>البنك الأهلي يرفع الفائدة</p></html>")
+                val p4 = UrlCheck.readPage("<html><form><p>ادخل رمز التحقق المرسل</p><input autocomplete=one-time-code></form></html>")
+                val pr = listOf(p1.password && p1.brand?.contains("NBE") == true, p2.card && !p2.password, !p3.password && !p3.card && !p3.code, p4.code && !p4.card)
+                android.util.Log.i("HorusTest", "link page=${pr.count { it }}/${pr.size}" + pr.withIndex().filter { !it.value }.joinToString("") { " fail${it.index}" })
                 android.util.Log.i("HorusTest", "studio alert-parse=" + (Studio.parseAlert("{\"active\":true,\"id\":\"t1\",\"text\":{\"en\":\"Test\"}}")?.id) + " inactive=" + Studio.parseAlert("{\"active\":false,\"id\":\"t2\",\"text\":{\"en\":\"x\"}}"))
             }
             if (i.getBooleanExtra("horus_dump", false)) Thread {
@@ -227,6 +233,8 @@ class MainActivity : ComponentActivity() {
             App.linkLookAlike = UrlCheck.offline(link)
             App.linkTapped = true
             if (BuildConfig.DEBUG) android.util.Log.i("HorusTest", "tapped " + (App.linkLookAlike?.let { "lookalike ${it.host} as ${it.official}" } ?: "clean"))
+            // no bank look-alike: run the full check at once, so the user never sees a "fine" that only covered banks
+            if (App.linkLookAlike == null) App.checkLink(link)
             App.screen = Screen.LINK
             i.action = Intent.ACTION_MAIN
             return
