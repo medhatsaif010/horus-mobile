@@ -173,6 +173,31 @@ if TOKEN:
     except Exception as e:
         add("backup", "warn", "Could not read the backup status", str(e)[:120])
 
+# 7. the threat-intel pack, rebuilt daily by medhatsaif010/horus-intel
+if TOKEN:
+    try:
+        rel = api("/repos/medhatsaif010/horus-intel/releases/tags/intel")
+        pk = next((x for x in rel["assets"] if x["name"] == "horus-intel.json"), None)
+        lg = next((x for x in rel["assets"] if x["name"] == "build.log"), None)
+        if not pk:
+            add("intel", "bad", "Threat intel pack is missing", "The intel release has no horus-intel.json.", "Run \"Horus threat-intel pack\" in the horus-intel repository's Actions.")
+        else:
+            age_h = (datetime.now(timezone.utc) - datetime.fromisoformat(pk["updated_at"].replace("Z", "+00:00"))).total_seconds() / 3600
+            log = ""
+            if lg:
+                req = urllib.request.Request(lg["url"], headers={"Authorization": f"Bearer {TOKEN}", "Accept": "application/octet-stream", "User-Agent": UA})
+                with urllib.request.urlopen(req, timeout=40) as r:
+                    log = r.read(200_000).decode("utf-8", "replace")
+            kept = [l.strip() for l in log.splitlines() if "keeping yesterday" in l or "skipped" in l]
+            if age_h > 36:
+                add("intel", "bad", "Threat intel is out of date", f"Last update {int(age_h)} hours ago.", "Open the horus-intel repository's Actions and check the failed \"Horus threat-intel pack\" run.")
+            elif kept:
+                add("intel", "warn", "Threat intel updated, but some sources were down", " · ".join(kept)[:300], "Phones keep yesterday's data for those sources. If it repeats for days, ask Claude to check the source.")
+            else:
+                add("intel", "ok", "Threat intel is up to date", f"Updated {int(age_h)} hours ago ({pk['size'] // 1024} KB).")
+    except Exception as e:
+        add("intel", "warn", "Could not read the threat intel status", str(e)[:120])
+
 order = {"bad": 2, "warn": 1, "ok": 0}
 overall = max((c["status"] for c in checks), key=lambda s: order[s], default="ok")
 out = {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "status": overall, "live": (live or {}).get("versionName"), "checks": checks}

@@ -182,6 +182,11 @@ class MainActivity : ComponentActivity() {
                 bk += !EgApps.certMismatch(null, listOf("BB22"))
                 bk += !EgApps.certMismatch(emptySet(), listOf("BB22"))
                 android.util.Log.i("HorusTest", "bank checks=${bk.count { it }}/${bk.size}" + bk.withIndex().filter { !it.value }.joinToString("") { " fail${it.index}" })
+                // same vector as build_intel.py bloom(["evil.example", "phish.test", "cib-eg-login.com"])
+                val bl = Bloom.from(org.json.JSONObject("""{"m":64,"k":15,"n":3,"bits":"rLTyntJKCik="}"""))
+                val bo = listOf(bl?.has("evil.example") == true, bl?.has("phish.test") == true, bl?.has("cib-eg-login.com") == true,
+                    bl?.has("good.example") == false, bl?.has("google.com") == false)
+                android.util.Log.i("HorusTest", "intel bloom=${bo.count { it }}/${bo.size}")
                 android.util.Log.i("HorusTest", "studio alert-parse=" + (Studio.parseAlert("{\"active\":true,\"id\":\"t1\",\"text\":{\"en\":\"Test\"}}")?.id) + " inactive=" + Studio.parseAlert("{\"active\":false,\"id\":\"t2\",\"text\":{\"en\":\"x\"}}"))
             }
             if (i.getBooleanExtra("horus_dump", false)) Thread {
