@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Plain http is allowed only because the link check must be able to look at http links people receive.
+     Horus Shield's own servers (updates, threat intel, alerts, reports, domain age) are https only. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">horusict.com</domain>
+        <domain includeSubdomains="true">github.com</domain>
+        <domain includeSubdomains="true">githubusercontent.com</domain>
+        <domain includeSubdomains="true">rdap.org</domain>
+    </domain-config>
+</network-security-config>

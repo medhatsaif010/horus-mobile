@@ -90,6 +90,9 @@ object UrlCheck {
 
     /** Official bank and wallet domains: never reported as phishing, whatever a list says. */
     private val officialDomains: List<String> by lazy { brands.flatMap { it.ok } }
+    /** Pages on these hosts are written by users, not by the company that owns the domain. */
+    private val userContent = listOf("docs.google.com", "forms.google.com", "sites.google.com", "script.google.com", "storage.googleapis.com",
+        "forms.office.com", "forms.microsoft.com", "1drv.ms", "notion.site", "linktr.ee", "bit.ly", "tinyurl.com", "wa.me", "t.me")
     private val sharedHosts = listOf("github.com", "raw.githubusercontent.com", "githubusercontent.com", "drive.google.com", "docs.google.com", "googleusercontent.com", "dropbox.com", "dropboxusercontent.com", "discord.com", "discordapp.com", "mediafire.com", "onedrive.live.com", "1drv.ms", "mega.nz", "gitlab.com", "bitbucket.org", "pastebin.com", "archive.org", "t.me", "amazonaws.com", "blob.core.windows.net", "sharepoint.com")
     private val badTlds = setOf("zip", "mov", "top", "xyz", "tk", "ml", "ga", "cf", "gq", "click", "rest", "cam", "icu", "cfd", "sbs", "buzz", "quest", "monster", "cyou", "bond", "lol", "support", "live")
     private val sld = setOf("com", "co", "net", "org", "gov", "edu", "ac", "sci", "eun", "mil", "info", "name")
@@ -350,6 +353,7 @@ object UrlCheck {
             if (tld in badTlds) sig("note", "الامتداد .$tld رخيص ويُستخدم كثيرًا في الاحتيال، لكنه وحده ليس دليلًا.", "الامتداد .$tld رخيص وبيتستخدم كتير في النصب، وده لوحده مش دليل.", "The .$tld ending is cheap and common in scams, though not proof on its own.")
             if (under(h, shorteners)) sig("note", "رابط مختصر ($h) يُخفي العنوان الحقيقي.", "لينك مختصر ($h) مخبّي العنوان الحقيقي.", "A short link ($h) hides the real address.")
             if (!isIp && under(h, freeHosts)) sig("note", "الصفحة على استضافة مجانية ($reg)، ويستطيع أي شخص إنشاء صفحة عليها في دقائق.", "الصفحة على استضافة مجانية ($reg). أي حد يقدر يعمل صفحة عليها في دقايق.", "The page is on free hosting ($reg). Anyone can set one up in minutes.")
+            else if (!isIp && (under(h, userContent) || under(h, sharedHosts)) && !under(h, shorteners)) sig("note", "الصفحة على خدمة ينشر عليها أي شخص ($h)، فشهرة الموقع لا تعني أن هذه الصفحة موثوقة.", "الصفحة على خدمة أي حد يقدر ينشر عليها ($h)، فشهرة الموقع مش معناها إن الصفحة دي موثوقة.", "The page is on a service where anyone can publish ($h); the site's fame says nothing about this page.")
             if (x.port != -1 && x.port != x.defaultPort) sig("note", "يستخدم الرابط منفذًا غير معتاد (${x.port}).", "اللينك على بورت غير المعتاد (${x.port}).", "The link uses an unusual port (${x.port}).")
             if (!isIp) brands.firstOrNull { it.rx.containsMatchIn(h) && !under(h, it.ok) }?.let { br ->
                 brandHit = true
@@ -362,6 +366,8 @@ object UrlCheck {
                     "The site name $h is spelled to look like the official «${la.brand}» site (${la.official}), but it is not. This is a known trick to steal bank and wallet logins.")
             }
         }
+        // the loop checks each hop before it asks it; the last hop it reached still needs the same check
+        if (reach == "ok" && chain.size > 1 && isLocalTarget(final.host)) reach = "local"
         val fh = final.host.lowercase()
         val fIp = ipv4.matches(fh) || fh.contains(':')
         val freg = if (fIp) fh else registrable(fh)
@@ -386,7 +392,10 @@ object UrlCheck {
         }
 
         val official = !fIp && under(fh, officialDomains)
-        val popular = !fIp && (under(freg, wellKnown) || intel.popular?.has(freg) == true)
+        // pages anyone can publish on a famous domain (sites.google.com, Google Forms, Drive, GitHub Pages,
+        // free hosting, short links) inherit nothing from that domain's fame
+        val hosted = !fIp && (under(fh, freeHosts) || under(fh, sharedHosts) || under(fh, shorteners) || under(fh, userContent))
+        val popular = !fIp && !hosted && (under(freg, wellKnown) || intel.popular?.has(freg) == true)
         var pageRead = false
         if (online && reach == "ok" && !fIp && !official) fetchPage(final)?.let { html ->
             pageRead = true

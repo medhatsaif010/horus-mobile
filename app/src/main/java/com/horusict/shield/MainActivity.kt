@@ -217,16 +217,17 @@ class MainActivity : ComponentActivity() {
         val openTok = i?.getStringExtra("horus_open_result")
         if (i != null && openTok != null) {
             i.removeExtra("horus_open_result")
-            val ok = openTok == Prefs.str("openToken")
+            // a wrong token (another app guessing) is ignored and leaves the real notification working
+            if (openTok != Prefs.str("openToken")) return
             Prefs.put("openToken", null)
-            if (!ok) return
             App.refreshFromPrefs()
             App.startScan(deep = true)
             return
         }
         if (i != null && i.action == Intent.ACTION_VIEW && (i.data?.scheme?.lowercase() ?: "") in listOf("http", "https")) {
             // a link the user tapped in WhatsApp, SMS or any app, with Horus Shield chosen as the browser.
-            // Only the on-phone look-alike check runs now; nothing is sent until the user taps Check link.
+            // The on-phone look-alike check runs first; if it finds nothing the full check runs at once
+            // (it never connects to the phone itself or to devices on the local network).
             val link = i.data.toString().take(2048)
             App.linkResult = null
             App.linkText = link
