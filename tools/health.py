@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Horus Shield health check, for Horus Studio's "الصحة" page and the owner's alerts.
+"""Horus Shield health check, for Horus Studio's Health page and the owner's alerts.
 
 Runs every hour and after every build (see .github/workflows/guard.yml). Writes health.json:
   {"at": ..., "status": "ok|warn|bad", "checks": [{"id", "status", "title", "detail", "fix"}]}
-Arabic texts are for the owner (Egyptian Arabic). Standard library only.
+Standard library only.
 """
 import json, os, sys, time, urllib.request, urllib.error
 from datetime import datetime, timezone, date
@@ -50,22 +50,22 @@ def add(id, status, title, detail="", fix=""):
 # 1. the website
 code, body, _ = http(SITE + "/")
 if code == 200 and "Horus" in body:
-    add("site", "ok", "الموقع شغال", "horusict.com بيفتح عادي.")
+    add("site", "ok", "Website is up", "horusict.com opens normally.")
 elif code in (403, 503) and ("challenge" in body.lower() or "cf-" in body.lower() or code == 403):
-    add("site", "bad", "الموقع بيطلب «تأكيد إنك إنسان»", f"horusict.com رد بـ {code}. غالبًا وضع Under Attack أو Bot Fight شغال.",
-        "من Cloudflare: Security ثم Settings، واقفل Under Attack Mode وBot Fight Mode.")
+    add("site", "bad", "Website shows a \"verify you are human\" page", f"horusict.com answered {code}. Under Attack Mode or Bot Fight Mode is probably on.",
+        "In Cloudflare: Security > Settings, turn off Under Attack Mode and Bot Fight Mode.")
 else:
-    add("site", "bad", "الموقع مش بيفتح", f"horusict.com رد بـ {code or 'مفيش رد'}.", "افتح Cloudflare وشوف آخر نشر للموقع في Workers & Pages.")
+    add("site", "bad", "Website is down", f"horusict.com answered {code or 'nothing'}.", "Open Cloudflare and check the latest site deployment in Workers & Pages.")
 
 # 2. the download link and the file behind it
 code, _, loc = http(SITE + "/download", follow=False)
 apk_code, _, _ = http(REL + "/HorusShield.apk", head=True)
 if code in (301, 302) and "HorusShield.apk" in loc and apk_code == 200:
-    add("download", "ok", "لينك التحميل شغال", "horusict.com/download بيوصّل لآخر نسخة.")
+    add("download", "ok", "Download link works", "horusict.com/download leads to the latest version.")
 elif apk_code != 200:
-    add("download", "bad", "ملف البرنامج مش موجود", f"ملف HorusShield.apk رد بـ {apk_code}.", "الفحص بيعيد النشر لوحده. لو فضلت حمرا ساعة، كلّم Claude.")
+    add("download", "bad", "App file is missing", f"HorusShield.apk answered {apk_code}.", "The check republishes it by itself. If it stays red for an hour, ask Claude.")
 else:
-    add("download", "bad", "لينك التحميل على الموقع مش شغال", f"horusict.com/download رد بـ {code}.", "اتأكد إن الموقع شغال وإن ملف _redirects موجود.")
+    add("download", "bad", "Download link on the website is broken", f"horusict.com/download answered {code}.", "Check that the website is up and that the _redirects file exists.")
 
 # 3. what users have vs what was approved
 live = None
@@ -75,7 +75,7 @@ try:
 except Exception:
     live = None
 if not live:
-    add("version", "bad", "ملف التحديثات مش موجود", f"version.json رد بـ {code}.", "البرنامج عند الناس مش هيعرف إن في تحديث. الفحص بيعيد النشر لوحده.")
+    add("version", "bad", "Update file is missing", f"version.json answered {code}.", "Installed apps will not see new versions. The check republishes it by itself.")
 
 last_ok = None   # newest main build whose publish step succeeded
 pending = None   # newest main build that finished but did not publish
@@ -97,21 +97,21 @@ if TOKEN:
                 failed = [n for n, j in jobs.items() if j.get("conclusion") == "failure"]
                 pending = (r, failed, pub)
     except Exception as e:
-        add("builds", "warn", "مش قادر أقرا حالة البناء", str(e)[:150])
+        add("builds", "warn", "Could not read the build status", str(e)[:150])
 
 if live and last_ok:
     v = live.get("versionName", "?")
     if pending and pending[0]["run_number"] > last_ok["run_number"]:
         r, failed, pub = pending
-        why = ("الاختبار على المحاكي فشل" if "smoke" in failed else "البناء نفسه فشل" if "build" in failed
-               else "خطوة النشر فشلت" if "publish" in failed else "خطوة النشر اتخطت")
-        add("publish", "bad", "آخر تعديل متنشرش للناس",
-            f"البناء رقم {r['run_number']} ({(r['head_commit'] or {}).get('message', '').splitlines()[0][:60]}): {why}. الناس لسه على {v}.",
-            "افتح «الإصدارات» في Studio، أو اطلب من Claude يشوف السبب.")
+        why = ("the emulator test failed" if "smoke" in failed else "the build failed" if "build" in failed
+               else "the publish step failed" if "publish" in failed else "the publish step was skipped")
+        add("publish", "bad", "The latest change did not reach users",
+            f"Build {r['run_number']} ({(r['head_commit'] or {}).get('message', '').splitlines()[0][:60]}): {why}. Users are still on {v}.",
+            "Open Releases in Studio, or ask Claude to find the cause.")
     else:
-        add("publish", "ok", f"الناس عندها آخر نسخة ({v})", "آخر تعديل وافقت عليه اتنشر.")
+        add("publish", "ok", f"Users have the latest version ({v})", "The last approved change was published.")
 if running:
-    add("building", "warn", "في نسخة بتتبني دلوقتي", f"البناء رقم {running['run_number']} شغال، وبياخد حوالي نص ساعة.")
+    add("building", "warn", "A version is being built now", f"Build {running['run_number']} is running; it takes about half an hour.")
 
 # 4. the urgent alert
 code, body, _ = http(SITE + "/alert.json")
@@ -120,21 +120,21 @@ try:
 except Exception:
     a = None
 if a is None:
-    add("alert", "warn", "ملف التنبيه العاجل مش بيفتح", f"alert.json رد بـ {code}. لو نشرت تنبيه، الموبايلات مش هتشوفه.",
-        "غالبًا Bot Fight Mode بيمنع البرنامج. اقفله من Cloudflare.")
+    add("alert", "warn", "Urgent alert file does not open", f"alert.json answered {code}. If you publish an alert, phones will not see it.",
+        "Bot Fight Mode is probably blocking the app. Turn it off in Cloudflare.")
 elif a.get("active"):
     until = a.get("until")
     txt = (a.get("text") or {}).get("eg") or (a.get("text") or {}).get("en") or ""
     expired = bool(until) and date.fromisoformat(until) < date.today()
     if expired:
-        add("alert", "ok", "مفيش تنبيه ظاهر", "آخر تنبيه خلصت مدته.")
+        add("alert", "ok", "No alert showing", "The last alert has expired.")
     elif len(txt.strip()) < 15 or txt.strip().lower() in ("test", "تجربة", "تست"):
-        add("alert", "bad", "تنبيه شكله تجربة ظاهر عند كل الناس", f"«{txt[:60]}» {'لحد ' + until if until else 'من غير تاريخ نهاية'}.",
-            "من Studio: «التنبيه العاجل» ثم «أوقف التنبيه».")
+        add("alert", "bad", "A test-looking alert is showing to everyone", f"\"{txt[:60]}\" {'until ' + until if until else 'with no end date'}.",
+            "In Studio: Urgent alert > Stop the alert.")
     else:
-        add("alert", "warn", "في تنبيه عاجل ظاهر عند الناس", f"«{txt[:80]}» {'لحد ' + until if until else 'من غير تاريخ نهاية — افتكر توقفه'}.")
+        add("alert", "warn", "An urgent alert is showing to users", f"\"{txt[:80]}\" {'until ' + until if until else 'with no end date - remember to stop it'}.")
 else:
-    add("alert", "ok", "مفيش تنبيه عاجل", "")
+    add("alert", "ok", "No urgent alert", "")
 
 # 5. change requests waiting on a failed test
 if TOKEN:
@@ -145,7 +145,7 @@ if TOKEN:
             if rs and rs[0]["status"] == "completed" and rs[0]["conclusion"] == "failure":
                 bad_prs.append(f"#{p['number']} {p['title'][:40]}")
         if bad_prs:
-            add("changes", "warn", "طلبات تعديل الاختبار بتاعها فشل", " · ".join(bad_prs), "افتح «التعديلات»: ارفضها أو اطلب من Claude يصلّحها.")
+            add("changes", "warn", "Change requests with a failed test", " · ".join(bad_prs), "Open Changes: reject them or ask Claude to fix them.")
     except Exception:
         pass
 
@@ -162,16 +162,16 @@ if TOKEN:
         if b:
             age_h = (datetime.now(timezone.utc) - datetime.fromisoformat(b["at"].replace("Z", "+00:00"))).total_seconds() / 3600
             if not b.get("ok"):
-                add("backup", "bad", "آخر باك أب فشل", f"من {int(age_h)} ساعة.", "افتح «الباك أب» في Studio وشوف السبب.")
+                add("backup", "bad", "The last backup failed", f"{int(age_h)} hours ago.", "Open Backup in Studio to see why.")
             elif age_h > 36:
-                add("backup", "bad", "الباك أب متعملش من أكتر من يوم", f"آخر باك أب ناجح من {int(age_h)} ساعة.", "افتح «الباك أب» في Studio واعمل باك أب دلوقتي.")
+                add("backup", "bad", "No backup for more than a day", f"Last good backup {int(age_h)} hours ago.", "Open Backup in Studio and run one now.")
             else:
-                add("backup", "ok", "الباك أب شغال", f"آخر نسخة ناجحة من {int(age_h)} ساعة، و{len(b.get('files', []))} نسخة محفوظة على OneDrive.")
+                add("backup", "ok", "Backup is working", f"Last good copy {int(age_h)} hours ago; {len(b.get('files', []))} copies kept on OneDrive.")
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            add("backup", "warn", "مفيش باك أب لسه", "أول باك أب على OneDrive لسه ماتعملش.")
+            add("backup", "warn", "No backup yet", "The first OneDrive backup has not run yet.")
     except Exception as e:
-        add("backup", "warn", "مش قادر أقرا حالة الباك أب", str(e)[:120])
+        add("backup", "warn", "Could not read the backup status", str(e)[:120])
 
 order = {"bad": 2, "warn": 1, "ok": 0}
 overall = max((c["status"] for c in checks), key=lambda s: order[s], default="ok")

@@ -1,0 +1,9 @@
+What's new in Horus Shield:
+• Link guard: an instant warning when a link you open imitates a bank or wallet site
+• Detects fake Egyptian bank and wallet apps, and modified WhatsApp builds
+• Before-and-after repair check: see what changed on your phone
+• Detects WhatsApp account theft and call forwarding
+• Bluetooth tracker radar for AirTag and similar trackers
+• "Someone is watching me": a safe plan and Egyptian helplines
+• Report a scam link or number
+• A simpler home screen, with services grouped by what you need

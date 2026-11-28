@@ -1,7 +1,7 @@
 name: Health check
 
 # Every hour, and right after every build: check the website, the download, what version users have,
-# the urgent alert and waiting change requests. The result is shown in Horus Studio ("الصحة").
+# the urgent alert and waiting change requests. The result is shown in Horus Studio (Health page).
 # When something is red, an issue is opened and assigned to the owner, so GitHub emails him;
 # it is closed again by itself once everything is fine.
 on:
@@ -67,13 +67,13 @@ jobs:
           cur = (json.loads(open_issue) or [None])[0] if open_issue else None
           if bad:
               lines = "\n".join(f"- **{c['title']}**: {c['detail']}" + (f"\n  ↳ {c['fix']}" if c.get("fix") else "") for c in bad)
-              body = f"Horus Shield محتاج انتباهك:\n\n{lines}\n\nالتفاصيل في Horus Studio: https://horusict.com/studio/#health"
+              body = f"Horus Shield needs your attention:\n\n{lines}\n\nDetails in Horus Studio: https://horusict.com/studio/#health"
               key = "|".join(sorted(c["id"] for c in bad))
               if cur is None:
-                  gh("issue", "create", "--title", "🔴 Horus Shield محتاج انتباهك", "--label", "health", "--assignee", os.environ["OWNER"], "--body", body + f"\n\n<!-- {key} -->")
+                  gh("issue", "create", "--title", "🔴 Horus Shield needs your attention", "--label", "health", "--assignee", os.environ["OWNER"], "--body", body + f"\n\n<!-- {key} -->")
               elif f"<!-- {key} -->" not in cur["body"]:
                   gh("issue", "edit", str(cur["number"]), "--body", body + f"\n\n<!-- {key} -->")
-                  gh("issue", "comment", str(cur["number"]), "--body", "اتغيّر اللي محتاج انتباهك:\n\n" + lines)
+                  gh("issue", "comment", str(cur["number"]), "--body", "What needs your attention changed:\n\n" + lines)
           elif cur is not None:
-              gh("issue", "close", str(cur["number"]), "--comment", "✅ كل حاجة رجعت تمام.")
+              gh("issue", "close", str(cur["number"]), "--comment", "✅ Everything is healthy again.")
           PY
