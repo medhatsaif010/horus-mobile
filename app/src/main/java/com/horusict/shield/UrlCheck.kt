@@ -52,6 +52,8 @@ object UrlCheck {
     )
     private val shorteners = listOf("bit.ly", "tinyurl.com", "t.co", "cutt.ly", "is.gd", "rb.gy", "shorturl.at", "goo.su", "ow.ly", "buff.ly", "t.ly", "tiny.cc", "rebrand.ly", "s.id", "v.gd", "lnkd.in", "goo.gl", "linktr.ee", "clck.ru", "surl.li", "urlz.fr")
     private val freeHosts = listOf("web.app", "firebaseapp.com", "pages.dev", "workers.dev", "github.io", "netlify.app", "vercel.app", "blogspot.com", "weebly.com", "wixsite.com", "000webhostapp.com", "glitch.me", "r2.dev", "ngrok-free.app", "ngrok.io", "duckdns.org", "trycloudflare.com", "herokuapp.com", "repl.co", "replit.app", "godaddysites.com", "webflow.io", "square.site", "sites.google.com", "forms.gle", "my.canva.site")
+    /** Official bank and wallet domains: never reported as phishing, whatever a list says. */
+    private val officialDomains: List<String> by lazy { brands.flatMap { it.ok } }
     private val sharedHosts = listOf("github.com", "raw.githubusercontent.com", "githubusercontent.com", "drive.google.com", "docs.google.com", "googleusercontent.com", "dropbox.com", "dropboxusercontent.com", "discord.com", "discordapp.com", "mediafire.com", "onedrive.live.com", "1drv.ms", "mega.nz", "gitlab.com", "bitbucket.org", "pastebin.com", "archive.org", "t.me", "amazonaws.com", "blob.core.windows.net", "sharepoint.com")
     private val badTlds = setOf("zip", "mov", "top", "xyz", "tk", "ml", "ga", "cf", "gq", "click", "rest", "cam", "icu", "cfd", "sbs", "buzz", "quest", "monster", "cyou", "bond", "lol", "support", "live")
     private val sld = setOf("com", "co", "net", "org", "gov", "edu", "ac", "sci", "eun", "mil", "info", "name")
@@ -251,6 +253,10 @@ object UrlCheck {
             intel.c2Domains.entries.firstOrNull { h == it.key || h.endsWith("." + it.key) }?.let {
                 sig("bad", "النطاق $h مسجّل كخادم تحكم لبرمجية خبيثة (${it.value}).", "الدومين $h متسجل كسيرفر تحكم لبرمجية خبيثة (${it.value}).", "The domain $h is listed as a malware command server (${it.value}).")
             }
+            if (!isIp && intel.communityDomains.any { h == it || h.endsWith(".$it") })
+                sig("bad", "أبلغ مستخدمو Horus Shield أن هذا الموقع احتيال، وأكّد فريق Horus ذلك.", "مستخدمين Horus Shield بلّغوا إن الموقع ده نصب، وفريق Horus اتأكد منه.", "Horus Shield users reported this site as a scam, and the Horus team confirmed it.")
+            if (!isIp && !under(h, officialDomains) && intel.phishing?.let { b -> b.has(h) || (reg != h && !under(reg, sharedHosts) && b.has(reg)) } == true)
+                sig("bad", "النطاق $h مسجّل في قاعدة مواقع التصيّد النشطة (Phishing.Database).", "الدومين $h متسجل في قاعدة مواقع التصيّد الشغالة (Phishing.Database).", "The domain $h is listed as an active phishing site (Phishing.Database).")
             if (isIp) intel.c2Ips[h]?.let { sig("bad", "العنوان $h مسجّل كخادم تحكم لبرمجية خبيثة ($it).", "العنوان $h متسجل كسيرفر تحكم لبرمجية خبيثة ($it).", "The address $h is listed as a malware command server ($it).") }
             if (intel.malwareUrls.isNotEmpty()) {
                 val bare = link.replace(Regex("^https?://", RegexOption.IGNORE_CASE), "").trimEnd('/').lowercase()

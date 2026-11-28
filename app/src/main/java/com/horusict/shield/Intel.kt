@@ -19,6 +19,32 @@ import java.security.spec.RSAPublicKeySpec
 import java.time.LocalDate
 
 data class Stalker(val name: String, val type: String, val packages: List<String>, val certs: List<String>)
+
+/**
+ * Bloom filter built by horus-intel (build_intel.py bloom()): SHA-256 of the item, h1 = bytes 0-7, h2 = bytes 8-15
+ * (big-endian, unsigned), bit j = (h1 mod m + i * (h2 mod m)) mod m for i in 0 until k; byte j/8, mask 1 << (j % 8).
+ * "false" is always right; "true" is wrong about 1 time in 10,000.
+ */
+class Bloom(val m: Long, val k: Int, private val bits: ByteArray) {
+    fun has(item: String): Boolean {
+        if (m <= 0 || bits.isEmpty()) return false
+        val h = java.security.MessageDigest.getInstance("SHA-256").digest(item.toByteArray(Charsets.UTF_8))
+        val bb = java.nio.ByteBuffer.wrap(h)
+        val a = java.lang.Long.remainderUnsigned(bb.getLong(0), m)
+        val b = java.lang.Long.remainderUnsigned(bb.getLong(8), m)
+        for (i in 0 until k) {
+            val j = (a + i * b) % m
+            if ((bits[(j ushr 3).toInt()].toInt() and (1 shl (j and 7).toInt())) == 0) return false
+        }
+        return true
+    }
+    companion object {
+        fun from(o: JSONObject?): Bloom? = try {
+            if (o == null || !o.has("bits")) null
+            else Bloom(o.getLong("m"), o.getInt("k"), android.util.Base64.decode(o.getString("bits"), android.util.Base64.DEFAULT))
+        } catch (e: Exception) { null }
+    }
+}
 data class Kev(val cve: String, val dateAdded: LocalDate?, val vendor: String, val product: String)
 
 class IntelData(
@@ -31,6 +57,11 @@ class IntelData(
     val kev: List<Kev>,
     val malwareUrls: Set<String>,
     val malwareHashes: Set<String> = emptySet(),
+    /** Active phishing domains (Phishing.Database). */
+    val phishing: Bloom? = null,
+    /** Scam links and numbers reported by users and confirmed by the Horus team. */
+    val communityDomains: Set<String> = emptySet(),
+    val communityPhones: Set<String> = emptySet(),
 ) {
     val byPackage: Map<String, Stalker> = buildMap { stalkerware.forEach { s -> s.packages.forEach { put(it, s) } } }
     val byCert: Map<String, Stalker> = buildMap { stalkerware.forEach { s -> s.certs.forEach { put(it.uppercase(), s) } } }
@@ -113,7 +144,12 @@ object Intel {
         o.optJSONArray("malware_urls")?.let { a -> for (i in 0 until a.length()) urls.add(a.optString(i).lowercase()) }
         val hashes = HashSet<String>()
         o.optJSONArray("malware_sha256")?.let { a -> for (i in 0 until a.length()) hashes.add(a.optString(i).lowercase()) }
-        return IntelData(o.optString("generatedAt", ""), source, st, doms, ips, fin, kev, urls, hashes)
+        val cd = HashSet<String>(); val cp = HashSet<String>()
+        o.optJSONObject("community")?.let { c ->
+            c.optJSONArray("domains")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.optString("d")?.lowercase()?.takeIf { it.contains('.') }?.let { cd.add(it) } }
+            c.optJSONArray("phones")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.optString("p")?.takeIf { it.isNotEmpty() }?.let { cp.add(it) } }
+        }
+        return IntelData(o.optString("generatedAt", ""), source, st, doms, ips, fin, kev, urls, hashes, Bloom.from(o.optJSONObject("phishing")), cd, cp)
     }
 
     /** Full signed pack -> the small subset the phone needs. */
@@ -134,6 +170,8 @@ object Intel {
         o.put("android_kev", full.optJSONObject("kev")?.optJSONArray("android") ?: JSONArray())
         o.put("malware_urls", full.optJSONObject("malware")?.optJSONArray("urls") ?: JSONArray())
         o.put("malware_sha256", full.optJSONObject("malware")?.optJSONArray("sha256") ?: JSONArray())
+        full.optJSONObject("phishing")?.let { o.put("phishing", it) }
+        full.optJSONObject("community")?.let { o.put("community", it) }
         return o
     }
 

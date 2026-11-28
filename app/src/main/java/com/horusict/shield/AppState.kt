@@ -107,10 +107,11 @@ object App {
             intel = withContext(Dispatchers.IO) { Intel.get(ctx) }
             val age = intel?.let { Intel.ageDays(it) } ?: 99
             val checked = Prefs.long("intelChecked")
-            if (age >= 2 && System.currentTimeMillis() - checked > 12 * 3600_000L) updateIntel(quiet = true)
+            if (age >= 1 && System.currentTimeMillis() - checked > 6 * 3600_000L) updateIntel(quiet = true)
         }
         maybeCheckUpdate()
         UpdateCheck.schedule(ctx)
+        IntelWork.schedule(ctx)
         repairSavedAt = RepairCheck.savedAt(ctx)
         if (ScamReports.list().any { !it.sent }) scope.launch { if (withContext(Dispatchers.IO) { ScamReports.sendPending() } > 0) reportsVersion++ }
         // evidence files hold full system logs: never keep them longer than a day
